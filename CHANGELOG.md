@@ -2,6 +2,14 @@
 
 All notable CTX404 changes are documented here. The project follows Semantic Versioning where practical during beta development.
 
+## Unreleased
+
+### Changed
+
+- Requirements now appear before installation in both README languages and on the landing page.
+- Inspection-first installation is recommended, with the remote one-command path explicitly labeled as a convenience that executes remote code.
+- Installer scope and transactional replacement behavior are documented before execution.
+
 ## [0.2.0-beta.1] - 2026-08-02
 
 ### Added

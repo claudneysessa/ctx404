@@ -20,9 +20,53 @@ Em um repositório novo, ela inicia o Git e instala diretamente a fundação de 
 
 **Execute uma vez. A skill sai. O sistema de contexto fica.** Ao clonar o repositório inicializado em outra máquina, regras, estado atual, índice, histórico, hooks e auxiliares viajam junto do código.
 
+## Requisitos
+
+- Claude Code com suporte a skills;
+- Python 3 disponível como `python`;
+- Git disponível como `git`;
+- Windows, macOS ou Linux.
+
+Confira antes de instalar:
+
+```text
+python --version
+git --version
+claude --version
+```
+
+Os auxiliares usam somente a biblioteca padrão do Python. O CTX404 não instala pacotes Python ou Node.js nos projetos inicializados.
+
 ## Início rápido
 
 ### Instalação
+
+#### Inspecione primeiro — recomendado
+
+Os comandos abaixo permitem ler exatamente o que será instalado antes de executar:
+
+```bash
+# macOS · Linux · WSL · Git Bash
+git clone --depth 1 https://github.com/claudneysessa/ctx404.git
+cd ctx404
+less install.sh scripts/install.py
+python scripts/install.py --force
+```
+
+```powershell
+# Windows · PowerShell 5.1+
+git clone --depth 1 https://github.com/claudneysessa/ctx404.git
+Set-Location ctx404
+Get-Content install.ps1
+Get-Content scripts/install.py
+python scripts/install.py --force
+```
+
+O instalador copia somente `SKILL.md`, `scripts/`, `assets/` e `references/` para a pasta global de skills do Claude. A substituição é transacional: uma instalação anterior é restaurada caso a nova cópia falhe.
+
+#### Comando único por conveniência
+
+Estes comandos baixam e executam código remoto. Use somente se você confia no repositório e prefere conveniência à inspeção:
 
 ```bash
 # macOS · Linux · WSL · Git Bash
@@ -88,15 +132,6 @@ O CTX404 fornece rotas e guardrails explícitos para delegar trabalhos de baixo 
 - **Python:** instalação, validação e manutenção determinísticas.
 
 O Claude ainda decide quando delegar. Roteamento, economia e qualidade não são garantidos. O CTX404 não substitui revisão, julgamento nem definições corretas do projeto.
-
-## Requisitos
-
-- Claude Code com suporte a skills;
-- Python 3 disponível como `python`;
-- Git disponível como `git`;
-- Windows, macOS ou Linux.
-
-Os auxiliares usam somente a biblioteca padrão do Python. O CTX404 não instala pacotes Python ou Node.js nos projetos inicializados.
 
 ## Verificação local
 

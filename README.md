@@ -20,9 +20,53 @@ For a new repository it initializes Git and installs the context foundation dire
 
 **Run once. The skill leaves. The context system stays.** Clone the initialized repository on another machine and its rules, current state, index, history, hooks and maintenance helpers travel with the code.
 
+## Requirements
+
+- Claude Code with skill support;
+- Python 3 available as `python`;
+- Git available as `git`;
+- Windows, macOS or Linux.
+
+Check before installing:
+
+```text
+python --version
+git --version
+claude --version
+```
+
+Runtime helpers use only the Python standard library. CTX404 installs no Python or Node.js packages in initialized projects.
+
 ## Quick start
 
 ### Install
+
+#### Inspect first — recommended
+
+The commands below let you read exactly what will be installed before running it:
+
+```bash
+# macOS · Linux · WSL · Git Bash
+git clone --depth 1 https://github.com/claudneysessa/ctx404.git
+cd ctx404
+less install.sh scripts/install.py
+python scripts/install.py --force
+```
+
+```powershell
+# Windows · PowerShell 5.1+
+git clone --depth 1 https://github.com/claudneysessa/ctx404.git
+Set-Location ctx404
+Get-Content install.ps1
+Get-Content scripts/install.py
+python scripts/install.py --force
+```
+
+The installer only copies `SKILL.md`, `scripts/`, `assets/` and `references/` into the user-level Claude skills directory. Replacement is transactional: an existing installation is restored if the new copy fails.
+
+#### One-command convenience
+
+These commands download and execute remote code. Use them only if you trust the repository and prefer convenience over inspection:
 
 ```bash
 # macOS · Linux · WSL · Git Bash
@@ -88,15 +132,6 @@ CTX404 gives Claude explicit routes and guardrails for delegating low-judgment w
 - **Python:** deterministic installation, validation and context maintenance.
 
 Claude still decides whether delegation is worthwhile. Model routing, savings and output quality are not guaranteed. CTX404 does not replace review, judgment or accurate project definitions.
-
-## Requirements
-
-- Claude Code with skill support;
-- Python 3 available as `python`;
-- Git available as `git`;
-- Windows, macOS or Linux.
-
-Runtime helpers use only the Python standard library. CTX404 installs no Python or Node.js packages in initialized projects.
 
 ## Verify locally
 

@@ -16,7 +16,7 @@
   <meta name="twitter:image" content="https://claudneysessa.github.io/ctx404/assets/ctx404-social-card.png">
   <title>CTX404 — Preserve your context</title>
   <link rel="icon" type="image/png" href="assets/ctx404-wordmark.png">
-  <link rel="stylesheet" href="styles.css?v=origin1">
+  <link rel="stylesheet" href="styles.css?v=install-audit-1">
 </head>
 <body>
   <div class="shell" id="top">
@@ -49,7 +49,7 @@
         <div class="side-intro">
           <p class="terminal"><span>$</span> cat ctx404.md</p>
           <h1 data-en="Context that<br>survives the<br>chat." data-pt="Contexto que<br>sobrevive ao<br>chat.">Context that<br>survives the<br>chat.</h1>
-          <p data-en="Bootstrap a compact, versionable context system into a new Claude Code repository." data-pt="Inicialize um sistema de contexto compacto e versionável em um novo repositório do Claude Code.">Bootstrap a compact, versionable context system into a new Claude Code repository.</p>
+          <p data-en="Bootstrap or adopt a compact, versionable context system in a Claude Code repository." data-pt="Inicialize ou adote um sistema de contexto compacto e versionável em um repositório do Claude Code.">Bootstrap or adopt a compact, versionable context system in a Claude Code repository.</p>
         </div>
 
         <div class="survival-note">
@@ -152,11 +152,32 @@
         </section>
 
         <section class="section" id="install">
-          <div class="section-head"><span>04</span><div><p class="eyebrow">INSTALL</p><h3 data-en="One command. Then /ctx404." data-pt="Um comando. Depois /ctx404.">One command. Then /ctx404.</h3></div></div>
+          <div class="section-head"><span>04</span><div><p class="eyebrow">INSTALL</p><h3 data-en="Inspect. Install. Then /ctx404." data-pt="Inspecione. Instale. Depois /ctx404.">Inspect. Install. Then /ctx404.</h3></div></div>
+          <div class="install-prereqs">
+            <div>
+              <p class="eyebrow" data-en="REQUIREMENTS · CHECK FIRST" data-pt="REQUISITOS · CONFIRA ANTES">REQUIREMENTS · CHECK FIRST</p>
+              <strong>Claude Code · Python 3 <code>python</code> · Git <code>git</code></strong>
+            </div>
+            <code>python --version<br>git --version<br>claude --version</code>
+          </div>
+          <div class="audit-first">
+            <div>
+              <span class="audit-mark">01</span>
+              <h4 data-en="Inspect first — recommended" data-pt="Inspecione primeiro — recomendado">Inspect first — recommended</h4>
+              <p data-en="Clone the repository, read the launcher and Python installer, then run the local file you reviewed. No blind pipe required." data-pt="Clone o repositório, leia o inicializador e o instalador Python e execute o arquivo local que você revisou. Nenhum pipe às cegas é necessário.">Clone the repository, read the launcher and Python installer, then run the local file you reviewed. No blind pipe required.</p>
+            </div>
+            <pre><code>git clone --depth 1 https://github.com/claudneysessa/ctx404.git
+cd ctx404
+# read install.sh or install.ps1 + scripts/install.py
+python scripts/install.py --force</code></pre>
+            <a href="https://github.com/claudneysessa/ctx404/tree/main/scripts" data-en="Review source on GitHub ↗" data-pt="Revisar código no GitHub ↗">Review source on GitHub ↗</a>
+          </div>
+          <p class="convenience-label" data-en="02 / ONE-COMMAND CONVENIENCE · executes remote code" data-pt="02 / COMANDO ÚNICO POR CONVENIÊNCIA · executa código remoto">02 / ONE-COMMAND CONVENIENCE · executes remote code</p>
           <div class="installer">
             <div class="tabs" role="tablist"><button class="tab active" type="button" data-platform="unix">macOS · Linux · WSL</button><button class="tab" type="button" data-platform="windows">Windows · PowerShell</button></div>
             <div class="code-row"><span>$</span><code id="install-command">curl -fsSL https://raw.githubusercontent.com/claudneysessa/ctx404/main/install.sh | sh</code><button class="copy" type="button">copy</button></div>
           </div>
+          <p class="installer-scope" data-en="Installs only SKILL.md, scripts/, assets/ and references/ in your user-level Claude skills directory. Replacement is transactional." data-pt="Instala somente SKILL.md, scripts/, assets/ e references/ na pasta global de skills do Claude. A substituição é transacional.">Installs only SKILL.md, scripts/, assets/ and references/ in your user-level Claude skills directory. Replacement is transactional.</p>
           <div class="run-flow"><span>NEW OR EXISTING REPOSITORY</span><i>→</i><strong>/ctx404</strong><i>→</i><span>SELF-MAINTAINING CONTEXT</span></div>
         </section>
 
