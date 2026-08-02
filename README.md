@@ -6,6 +6,11 @@
 
 <p align="center"><strong>Your AI forgot. Your repository won't.</strong></p>
 
+<p align="center">
+  <a href="https://claudneysessa.github.io/ctx404/"><strong>▶ EXPLORE THE INTERACTIVE LANDING PAGE</strong></a><br>
+  <sub>See the motivation, architecture, installation paths, real evidence and honest limits.</sub>
+</p>
+
 [Leia em Português (Brasil)](README.pt-BR.md)
 
 [![Public beta](https://img.shields.io/badge/status-public_beta-f59e0b)](https://github.com/claudneysessa/ctx404/releases)
