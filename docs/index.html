@@ -21,12 +21,16 @@
 <body>
   <div class="shell" id="top">
     <header class="topbar">
-      <a class="brand" href="#top" aria-label="CTX404 home">
-        <span class="brand-ctx">CTX</span><span class="brand-pulse" aria-hidden="true"></span><span class="brand-404">404</span>
-      </a>
-      <div class="top-status" aria-label="Project status">
-        <span class="live-dot"></span><strong>PUBLIC BETA</strong><span>OPEN SOURCE · MIT</span>
+      <div class="brand-block">
+        <a class="brand" href="#top" aria-label="CTX404 home"><span class="prompt-mark">~/</span><span id="brand-command" aria-label="ctx404"></span><span class="type-cursor" aria-hidden="true">_</span></a>
+        <div class="status-badges" aria-label="Project status">
+          <span><b>release</b><strong>v0.1.0-beta.1</strong></span>
+          <span><b>tests</b><strong>passing</strong></span>
+          <span><b>license</b><strong>MIT</strong></span>
+          <span><b>status</b><strong>public</strong></span>
+        </div>
       </div>
+      <div class="top-status"><span class="live-dot"></span><span>SIGNAL ACTIVE</span></div>
       <div class="top-actions">
         <button class="language active" type="button" data-lang="en">EN</button>
         <button class="language" type="button" data-lang="pt">PT-BR</button>
@@ -34,31 +38,44 @@
       </div>
     </header>
 
+    <div class="beta-strip" aria-label="Public beta and open source project">
+      <strong>PUBLIC BETA</strong>
+      <span>× OPEN SOURCE · MIT LICENSE · v0.1.0</span>
+      <a href="https://github.com/claudneysessa/ctx404/issues" data-en="TEST IT · OPEN AN ISSUE ↗" data-pt="TESTE · ABRA UMA ISSUE ↗">TEST IT · OPEN AN ISSUE ↗</a>
+    </div>
+
     <div class="workspace">
       <aside class="sidebar">
         <div class="side-intro">
-          <p class="eyebrow">CTX / SIGNAL STATUS</p>
-          <h1 data-en="Your AI forgot.<br>Your repository won't." data-pt="Sua IA esqueceu.<br>Seu repositório não vai esquecer.">Your AI forgot.<br>Your repository won't.</h1>
-          <p data-en="A one-time bootstrap for durable project context in Claude Code." data-pt="Uma inicialização única para contexto durável de projetos no Claude Code.">A one-time bootstrap for durable project context in Claude Code.</p>
+          <p class="terminal"><span>$</span> cat ctx404.md</p>
+          <h1 data-en="Context that<br>survives the<br>chat." data-pt="Contexto que<br>sobrevive ao<br>chat.">Context that<br>survives the<br>chat.</h1>
+          <p data-en="Bootstrap a compact, versionable context system into a new Claude Code repository." data-pt="Inicialize um sistema de contexto compacto e versionável em um novo repositório do Claude Code.">Bootstrap a compact, versionable context system into a new Claude Code repository.</p>
         </div>
 
-        <div class="signal-card" aria-label="Context signal diagnostic">
-          <div><span>NEW CHAT</span><b class="error">404</b></div>
-          <svg viewBox="0 0 320 70" role="img" aria-label="Context signal interrupted and restored">
-            <path class="signal-muted" d="M0 35h70l10-20 18 42 16-22h55l10-12 13 24 14-12h114"/>
-            <path class="signal-live" d="M192 47l14-12h114"/>
-            <rect x="184" y="31" width="9" height="9" class="fault"/>
-          </svg>
-          <div><span>PROJECT READY</span><b class="ok">200</b></div>
+        <div class="survival-note">
+          <span>→</span>
+          <strong data-en="The skill leaves. The system stays." data-pt="A skill sai. O sistema fica.">The skill leaves. The system stays.</strong>
         </div>
 
-        <nav aria-label="Page sections">
-          <a href="#why">01 / why</a>
-          <a href="#how">02 / how</a>
-          <a href="#architecture">03 / architecture</a>
-          <a href="#install">04 / install</a>
-          <a href="#limits">05 / limits</a>
-          <a href="#contribute">06 / contribute</a>
+        <section class="side-block">
+          <p class="terminal"><span>$</span> ctx404 --features</p>
+          <div class="feature-tags"><span>project-local</span><span>git-ready</span><span>token-aware</span><span>cross-machine</span><span>stdlib-only</span><span>open-source</span></div>
+        </section>
+
+        <section class="side-block route-block">
+          <p class="terminal"><span>$</span> models --route</p>
+          <div><b>opus</b><span>judgment + quality</span></div>
+          <div><b>sonnet</b><span>multi-file synthesis</span></div>
+          <div><b>haiku</b><span>fact discovery</span></div>
+          <div><b>python</b><span>deterministic state</span></div>
+        </section>
+
+        <nav class="side-links" aria-label="Page sections">
+          <p class="terminal"><span>$</span> whois --links</p>
+          <a href="#install">./install</a>
+          <a href="#architecture">./architecture</a>
+          <a href="#limits">./evidence</a>
+          <a href="#contribute">./contribute ↗</a>
         </nav>
 
         <div class="side-foot">
@@ -70,17 +87,22 @@
       <main class="content">
         <section class="hero" id="why">
           <div class="hero-copy">
-            <p class="terminal hero-terminal"><span>$</span> <span id="hero-command" aria-label="ctx404 --explain"></span><span class="type-cursor" aria-hidden="true">_</span></p>
-            <h2 data-en="Preserve your context.<br><em>Keep your momentum.</em>" data-pt="Preserve seu contexto.<br><em>Mantenha o ritmo.</em>">Preserve your context.<br><em>Keep your momentum.</em></h2>
-            <p class="lead" data-en="CTX404 installs a compact, indexed and versionable context protocol inside a new repository, so future Claude Code chats can recover what matters without rereading everything." data-pt="O CTX404 instala um protocolo de contexto compacto, indexado e versionável dentro de um novo repositório, para que novos chats do Claude Code recuperem o que importa sem reler tudo.">CTX404 installs a compact, indexed and versionable context protocol inside a new repository, so future Claude Code chats can recover what matters without rereading everything.</p>
+            <p class="terminal hero-command-line"><span>$</span> ctx404 --explain<span class="type-cursor" aria-hidden="true">_</span></p>
+            <h2 data-en="Start fresh.<br><em>Never start over.</em>" data-pt="Comece do zero.<br><em>Nunca recomece.</em>">Start fresh.<br><em>Never start over.</em></h2>
+            <p class="lead" data-en="Run one command in an empty repository. CTX404 initializes Git, installs project governance and creates an indexed context system built to travel with your code." data-pt="Execute um comando em um repositório vazio. O CTX404 inicia o Git, instala a governança e cria um sistema de contexto indexado que viaja com seu código.">Run one command in an empty repository. CTX404 initializes Git, installs project governance and creates an indexed context system built to travel with your code.</p>
             <div class="hero-actions">
               <a class="primary" href="#install" data-en="Install CTX404 →" data-pt="Instalar CTX404 →">Install CTX404 →</a>
               <a href="#how" data-en="See how it works" data-pt="Entenda como funciona">See how it works</a>
             </div>
           </div>
-          <div class="hero-art">
-            <img src="assets/ctx404-wordmark.svg" alt="CTX404 pulse wordmark">
-            <div class="hero-art-caption"><span>SESSION ENDED</span><strong>CONTEXT SIGNAL: ACTIVE</strong></div>
+          <div class="boot-panel" aria-label="CTX404 bootstrap flow">
+            <div class="boot-head"><span>new-project → claude</span><b>●</b></div>
+            <div class="boot-body">
+              <p><span>$</span> claude</p>
+              <p><span>›</span> /ctx404</p>
+              <ul><li>git initialized</li><li>native /init isolated</li><li>context protocol planted</li><li>governance validated</li></ul>
+              <strong>repository is self-maintaining<span class="type-cursor">_</span></strong>
+            </div>
           </div>
         </section>
 
