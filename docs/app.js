@@ -4,7 +4,27 @@ const commands = {
 };
 
 const command = document.querySelector("#install-command");
+const heroCommand = document.querySelector("#hero-command");
 let language = "en";
+
+function typeHeroCommand() {
+  const text = "ctx404 --explain";
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    heroCommand.textContent = text;
+    return;
+  }
+
+  let index = 0;
+  const typeNext = () => {
+    heroCommand.textContent = text.slice(0, index);
+    index += 1;
+    if (index <= text.length) {
+      window.setTimeout(typeNext, 72 + Math.random() * 65);
+    }
+  };
+
+  window.setTimeout(typeNext, 380);
+}
 
 function setLanguage(next) {
   language = next;
@@ -38,3 +58,4 @@ document.querySelector(".copy").addEventListener("click", async (event) => {
 });
 
 setLanguage("en");
+typeHeroCommand();
