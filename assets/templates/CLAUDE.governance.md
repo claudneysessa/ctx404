@@ -10,6 +10,7 @@ Claude Code auto memory is disabled for this project. `.claude/context/` is the 
 
 - Project name: `{{PROJECT_NAME}}`
 - Source: repository folder name at bootstrap.
+- Installation mode: `{{INSTALL_MODE}}`.
 - Treat this as an initial assumption. If the user defines another name, update this section, `.claude/context/index.json`, and `README.md` together.
 
 ## Project definition workspace
@@ -27,6 +28,8 @@ Claude Code auto memory is disabled for this project. `.claude/context/` is the 
 <!-- ctx404:project-definition:end -->
 
 After CTX404 finishes, take ownership of this workspace. Refine it from explicit user intent and verified repository evidence. Define only personas that materially help the project. Mark uncertain statements as assumptions and never invent missing facts. If no reliable purpose is available, ask one minimal question to establish it before refining the remaining fields.
+
+For an existing repository adoption, durable context starts at installation time. Do not scan or summarize the repository solely to reconstruct its past or fill this workspace. Let context grow as future work touches each area. After installation, recommend an optional concise project baseline or native `/init`; run either only when the user chooses it, show the result for approval, and save only verified facts.
 
 ## Start every session
 

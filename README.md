@@ -14,9 +14,9 @@
 
 > **Public beta:** CTX404 is ready for real-project testing, but interfaces may change before v1.0. Please report unexpected behavior through [Issues](https://github.com/claudneysessa/ctx404/issues).
 
-CTX404 is an open-source Claude Code skill that bootstraps durable, indexed and token-aware project context inside a new repository.
+CTX404 is an open-source Claude Code skill that bootstraps durable, indexed and token-aware context inside new or existing repositories.
 
-It initializes Git, delegates Claude Code's native `/init`, installs project-local governance, adds narrowly scoped Haiku and Sonnet helpers, and validates the context system with deterministic Python. After bootstrap, the repository maintains its own context. The global skill is no longer a runtime dependency.
+For a new repository it initializes Git and delegates Claude Code's native `/init`. For an existing repository it skips `/init`, preserves current files and starts durable context from the installation point forward. Both modes install project-local governance, narrowly scoped Haiku and Sonnet helpers, and deterministic Python validation. The global skill is no longer a runtime dependency after installation.
 
 **Run once. The skill leaves. The context system stays.** Clone the initialized repository on another machine and its rules, current state, index, history, hooks and maintenance helpers travel with the code.
 
@@ -37,11 +37,19 @@ irm https://raw.githubusercontent.com/claudneysessa/ctx404/main/install.ps1 | ie
 Then:
 
 1. Restart Claude Code if the command is not immediately discovered.
-2. Open Claude Code in an empty project directory.
+2. Open Claude Code in the target project directory.
 3. Run `/ctx404`.
 4. Describe what the project should become.
 
-CTX404 only initializes an empty directory or one containing only `.git`. It deliberately refuses to retrofit an existing project during the public beta.
+CTX404 detects the repository automatically. Empty projects use the original bootstrap flow. Existing projects use non-destructive adoption: project files and README stay untouched, existing Claude guidance is preserved, settings are merged, and no retrospective repository analysis runs during installation.
+
+## Existing repositories
+
+Adoption means **install now and keep working**. CTX404 does not try to reconstruct the project's past, generate speculative documentation or spend a large-model session cataloguing everything. Context grows organically as future work touches each area.
+
+After installation, CTX404 recommends an optional manual baseline. Ask Claude for a concise, evidence-based repository summary or run native `/init` yourself, review the result, and approve it before saving anything as durable context.
+
+Installation stops instead of overwriting when a CTX404-managed agent, hook, script or context path already exists with unknown ownership.
 
 ## What it creates
 

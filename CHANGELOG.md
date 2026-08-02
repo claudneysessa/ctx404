@@ -2,6 +2,21 @@
 
 All notable CTX404 changes are documented here. The project follows Semantic Versioning where practical during beta development.
 
+## [0.2.0-beta.1] - 2026-08-02
+
+### Added
+
+- Automatic detection of new and existing repositories.
+- Non-destructive adoption mode that starts durable context at installation time without reconstructing project history.
+- Optional, user-reviewed guidance for a concise project baseline or a manual native `/init` after adoption.
+- Deterministic coverage for adoption, managed-path conflicts and repeated installation.
+
+### Changed
+
+- Existing `README.md`, project files, `CLAUDE.md` guidance and unrelated Claude settings are preserved.
+- CTX404 governance is merged into existing Claude configuration instead of replacing it.
+- Installation now refuses unknown collisions only at paths managed by CTX404.
+
 ## [0.1.0-beta.1] - 2026-08-02
 
 ### Added
@@ -17,3 +32,4 @@ All notable CTX404 changes are documented here. The project follows Semantic Ver
 - Cross-platform automated tests and a documented calculator continuity laboratory.
 
 [0.1.0-beta.1]: https://github.com/claudneysessa/ctx404/releases/tag/v0.1.0-beta.1
+[0.2.0-beta.1]: https://github.com/claudneysessa/ctx404/releases/tag/v0.2.0-beta.1

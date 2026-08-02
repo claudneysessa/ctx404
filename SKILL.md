@@ -1,12 +1,12 @@
 ---
 name: ctx404
-description: Initialize an empty Claude Code project with Git, a compact self-maintaining context protocol, project-local documentation, deterministic Python helpers, and tiered Haiku/Sonnet subagents. Use when the user explicitly invokes /ctx404 to bootstrap a new repository.
+description: Bootstrap a new Claude Code repository or adopt an existing one with Git, a compact self-maintaining context protocol, deterministic Python helpers, and tiered Haiku/Sonnet subagents. Use when the user explicitly invokes /ctx404 to start durable project-local context without overwriting existing project files.
 disable-model-invocation: true
 ---
 
 # CTX404
 
-Initialize only an empty project directory or a directory containing only `.git`.
+Detect whether the target is new or already contains a project. Bootstrap new repositories and adopt existing repositories without retrospectively analyzing or reorganizing them.
 
 ## Workflow
 
@@ -17,37 +17,42 @@ Initialize only an empty project directory or a directory containing only `.git`
    python "<skill-directory>/scripts/bootstrap.py" prepare --target "<project-root>"
    ```
 
-3. Delegate Claude Code's native `/init` skill to a `general-purpose` subagent using the Haiku model. Instruct it to invoke `/init`, verify that `CLAUDE.md` exists, make no other changes, and return immediately. The repository is known to contain only `.git`: prohibit broad exploration, reading `.git`, architecture inference, and repeated verification. Do not invoke `/init` in the main thread because native skill expansion replaces the active workflow.
-4. After the subagent returns, install the CTX404 structure:
+3. Read the JSON result's `mode` field.
+4. If `mode` is `new`, delegate Claude Code's native `/init` skill to a `general-purpose` subagent using the Haiku model. Instruct it to invoke `/init`, verify that `CLAUDE.md` exists, make no other changes, and return immediately. Prohibit broad exploration, reading `.git`, architecture inference, and repeated verification. Do not invoke `/init` in the main thread because native skill expansion replaces the active workflow.
+5. If `mode` is `adopt`, skip `/init`. Do not explore or summarize the existing repository as part of installation.
+6. Install the CTX404 structure:
 
    ```powershell
    python "<skill-directory>/scripts/bootstrap.py" install --target "<project-root>"
    ```
 
-5. Validate the installed context system:
+7. Validate the installed context system:
 
    ```powershell
    python "<project-root>/.claude/scripts/context_tool.py" validate --root "<project-root>"
    ```
 
-6. Report the created files and validation result.
-7. Tell the user that CTX404 has finished and the repository is now self-maintaining.
-8. Explain that project agents written to `.claude/agents/` become available after Claude Code restarts because file-defined agents load at session start.
-9. In the same turn, take ownership of the newly initialized repository and refine the `Project definition workspace` in `CLAUDE.md` from explicit user intent and verified evidence. Synchronize `README.md` and `.claude/context/index.json`. If the project purpose is unavailable, ask only one minimal question instead of inventing it.
-10. Stop using CTX404 after this handoff; subsequent maintenance belongs to the repository protocol.
+8. Report the mode, created or merged files, and validation result.
+9. Tell the user that CTX404 has finished and the repository is now self-maintaining.
+10. Explain that project agents written to `.claude/agents/` become available after Claude Code restarts because file-defined agents load at session start.
+11. For `new`, take ownership of the repository in the same turn and refine the `Project definition workspace` from explicit user intent and verified evidence. Synchronize `README.md` and `.claude/context/index.json`. If the purpose is unavailable, ask only one minimal question instead of inventing it.
+12. For `adopt`, state that no retrospective analysis was performed and durable context starts now. Recommend, but do not automatically run, one optional baseline step: ask Claude for a concise evidence-based project summary or run native `/init` manually. Require user review before saving either result as context.
+13. Stop using CTX404 after this handoff; subsequent maintenance belongs to the repository protocol.
 
 ## Guardrails
 
 - Require explicit user invocation because this workflow creates files and initializes Git.
-- Do not initialize a non-empty project. CTX404 v1 does not migrate existing repositories.
+- Preserve every pre-existing project file. Do not rewrite README.md, reorganize code, infer project history, or scan the repository merely to populate context during adoption.
+- Merge the managed governance block into an existing `CLAUDE.md` and merge CTX404 hooks into an existing `.claude/settings.json`; preserve unrelated content and settings.
+- Refuse managed-path collisions instead of overwriting custom agents, hooks, scripts, or context files.
 - Never delete, overwrite, publish, commit, add a remote, or push.
-- Preserve the `CLAUDE.md` generated by `/init`; install the managed governance block above it.
+- Preserve the `CLAUDE.md` generated by `/init` or already present in an adopted repository; install the managed governance block above it.
 - Keep the `/init` subagent narrowly scoped. The main model owns all remaining bootstrap, validation, handoff, and project-definition work.
 - Native `/init` controls its own internal exploration and may not honor every scope instruction passed to the subagent. Never treat its output as project evidence in an empty repository; preserve only the generated `CLAUDE.md`, then let the main model define the project from user intent and later verified files.
 - Do not enumerate or read the installed CTX404 directory. The workflow paths are defined here; invoke the bundled scripts directly.
 - Preserve Opus quality and responsibility. Delegate only mechanical work that does not require its judgment, and only when delegation costs less than direct execution.
 - Use the bundled Python scripts and templates. Do not regenerate equivalent files manually.
-- If `/init` does not create `CLAUDE.md`, continue with the governance block and an empty project-guidance section, then report the condition.
+- If `/init` does not create `CLAUDE.md` in `new` mode, continue with the governance block and an empty project-guidance section, then report the condition.
 - Treat the folder-derived project name as an initial assumption. Refine it with the other project definitions after bootstrap.
 - Define project-specific personas only when they materially support the verified project scope.
 - Treat Python and Git as required. Node.js may be present but is not required by CTX404 v1.

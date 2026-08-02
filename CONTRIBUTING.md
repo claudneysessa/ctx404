@@ -16,7 +16,7 @@ Use the bug template and provide:
 - operating system and shell;
 - Claude Code, Python and Git versions;
 - CTX404 version or commit;
-- whether the directory was empty or contained `.git`;
+- whether the repository was new or already contained project files;
 - exact steps and sanitized output;
 - expected and actual behavior.
 

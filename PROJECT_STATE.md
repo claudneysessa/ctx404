@@ -8,15 +8,16 @@
 - Repositório: `claudneysessa/ctx404`
 - Demonstração: https://claudneysessa.github.io/ctx404/
 - Branch: `main`
-- Versão: `v0.1.0-beta.1`
+- Versão: `v0.2.0-beta.1`
 
 ## Estado validado
 
 - Skill pública para Claude Code, licenciada sob MIT.
 - Instaladores para PowerShell e shells Unix-like documentados.
-- Bootstrap limitado a repositórios vazios ou contendo apenas `.git`.
+- Bootstrap para repositórios novos e adoção não destrutiva de repositórios existentes.
+- Na adoção, o contexto começa na instalação; não há reconstrução automática do passado.
 - Contexto local, indexado e versionável; auxilia delegação sem prometer economia automática.
-- Landing page pública, documentação bilíngue, testes e laboratório de continuidade disponíveis.
+- Landing page pública, documentação bilíngue, 9 testes determinísticos e laboratórios de continuidade disponíveis.
 - Incluído no portfólio pessoal nas categorias `Skills de IA` e `Open Source`.
 
 ## Como validar
@@ -48,4 +49,3 @@ python -m compileall -q scripts assets/templates/.claude
 
 - Não apresentar delegação, redução de tokens ou qualidade como garantias.
 - Não restaurar o nome anterior; a identidade pública é CTX404.
-

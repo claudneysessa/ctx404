@@ -1,4 +1,4 @@
 interface:
   display_name: "CTX404"
   short_description: "Bootstrap self-maintaining project context"
-  default_prompt: "Use $ctx404 to initialize this empty repository with portable context governance."
+  default_prompt: "Use $ctx404 to initialize or adopt this repository with portable context governance."
