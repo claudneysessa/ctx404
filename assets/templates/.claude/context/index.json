@@ -1,0 +1,14 @@
+{
+  "ctx404Version": "{{CTX404_VERSION}}",
+  "schemaVersion": 1,
+  "project": {
+    "name": null,
+    "summary": null
+  },
+  "entrypoints": {
+    "current": ".claude/context/current.json",
+    "history": ".claude/context/history.jsonl",
+    "readme": "README.md"
+  },
+  "topics": []
+}

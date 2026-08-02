@@ -1,0 +1,112 @@
+# CTX404
+
+<p align="center">
+  <img src="docs/assets/ctx404-social-card.png" alt="CTX404 — Sua IA esqueceu. Seu repositório não vai esquecer." width="100%">
+</p>
+
+<p align="center"><strong>Sua IA esqueceu. Seu repositório não vai esquecer.</strong></p>
+
+[Read in English](README.md)
+
+[![Beta público](https://img.shields.io/badge/status-beta_público-f59e0b)](https://github.com/claudneysessa/ctx404/releases)
+[![Testes](https://github.com/claudneysessa/ctx404/actions/workflows/test.yml/badge.svg)](https://github.com/claudneysessa/ctx404/actions/workflows/test.yml)
+[![Licença: MIT](https://img.shields.io/badge/licença-MIT-41e681.svg)](LICENSE)
+
+> **Beta público:** o CTX404 está pronto para testes em projetos reais, mas suas interfaces podem mudar antes da v1.0. Relate comportamentos inesperados em [Issues](https://github.com/claudneysessa/ctx404/issues).
+
+CTX404 é uma skill open source para Claude Code que inicializa contexto durável, indexado e consciente do consumo de tokens dentro de um novo repositório.
+
+Ela inicia o Git, delega o `/init` nativo do Claude Code, instala governança local, adiciona auxiliares Haiku e Sonnet com escopo restrito e valida o sistema com Python determinístico. Depois da inicialização, o próprio repositório mantém seu contexto. A skill global deixa de ser dependência de execução.
+
+**Execute uma vez. A skill sai. O sistema de contexto fica.** Ao clonar o repositório inicializado em outra máquina, regras, estado atual, índice, histórico, hooks e auxiliares viajam junto do código.
+
+## Início rápido
+
+### Instalação
+
+```bash
+# macOS · Linux · WSL · Git Bash
+curl -fsSL https://raw.githubusercontent.com/claudneysessa/ctx404/main/install.sh | sh
+```
+
+```powershell
+# Windows · PowerShell 5.1+
+irm https://raw.githubusercontent.com/claudneysessa/ctx404/main/install.ps1 | iex
+```
+
+Depois:
+
+1. Reinicie o Claude Code caso o comando não apareça imediatamente.
+2. Abra o Claude Code em uma pasta de projeto vazia.
+3. Execute `/ctx404`.
+4. Descreva o que o projeto deve se tornar.
+
+O CTX404 inicializa somente uma pasta vazia ou contendo apenas `.git`. Durante o beta público, ele recusa deliberadamente adaptar projetos existentes.
+
+## Estrutura criada
+
+```text
+novo-projeto/
+├── .git/
+├── .claude/
+│   ├── agents/
+│   │   ├── context-scout.md
+│   │   └── context-curator.md
+│   ├── hooks/
+│   │   ├── session_context.py
+│   │   └── guard_agent_bash.py
+│   ├── scripts/context_tool.py
+│   ├── settings.json
+│   └── context/
+│       ├── index.json
+│       ├── current.json
+│       ├── schema.json
+│       ├── history.jsonl
+│       ├── templates/topic.md
+│       └── topics/
+├── CLAUDE.md
+└── README.md
+```
+
+Novas sessões recebem um resumo compacto. Elas consultam o índice e carregam somente o tópico necessário para a tarefa atual, em vez de transformar todo o repositório em contexto inicial.
+
+## Delegação ajuda; não faz mágica
+
+O CTX404 fornece rotas e guardrails explícitos para delegar trabalhos de baixo julgamento a modelos mais baratos:
+
+- **Haiku:** descoberta limitada, localização de arquivos e extração factual;
+- **Sonnet:** leitura de múltiplos arquivos, síntese e curadoria de contexto;
+- **Opus:** arquitetura, trade-offs, alterações arriscadas e julgamento final;
+- **Python:** instalação, validação e manutenção determinísticas.
+
+O Claude ainda decide quando delegar. Roteamento, economia e qualidade não são garantidos. O CTX404 não substitui revisão, julgamento nem definições corretas do projeto.
+
+## Requisitos
+
+- Claude Code com suporte a skills;
+- Python 3 disponível como `python`;
+- Git disponível como `git`;
+- Windows, macOS ou Linux.
+
+Os auxiliares usam somente a biblioteca padrão do Python. O CTX404 não instala pacotes Python ou Node.js nos projetos inicializados.
+
+## Verificação local
+
+```bash
+python -m unittest discover -s tests -v
+python -m compileall -q scripts assets/templates/.claude
+```
+
+Consulte o [laboratório reproduzível da calculadora](examples/calculator-lab/README.md) e os [ambientes testados](TESTED_ENVIRONMENTS.md).
+
+## Segurança e privacidade
+
+O contexto fica dentro do repositório. Isso facilita a portabilidade, mas exige cuidado com visibilidade e regras de exclusão. Nunca grave senhas, tokens, chaves privadas ou outros segredos nos arquivos de contexto. Veja [SECURITY.md](SECURITY.md).
+
+## Contribuindo
+
+Issues, relatos de compatibilidade e pull requests focados são bem-vindos em português ou inglês. Leia [CONTRIBUTING.md](CONTRIBUTING.md) e o [Código de Conduta](CODE_OF_CONDUCT.md).
+
+## Licença
+
+[MIT](LICENSE)

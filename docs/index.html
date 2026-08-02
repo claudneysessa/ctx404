@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#050a08">
+  <meta name="description" content="CTX404 bootstraps durable, indexed and token-aware context inside Claude Code repositories.">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="CTX404 — Preserve your context">
+  <meta property="og:description" content="Your AI forgot. Your repository won't.">
+  <meta property="og:image" content="https://claudneysessa.github.io/ctx404/assets/ctx404-social-card.png">
+  <meta property="og:url" content="https://claudneysessa.github.io/ctx404/">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="CTX404 — Preserve your context">
+  <meta name="twitter:description" content="Your AI forgot. Your repository won't.">
+  <meta name="twitter:image" content="https://claudneysessa.github.io/ctx404/assets/ctx404-social-card.png">
+  <title>CTX404 — Preserve your context</title>
+  <link rel="icon" type="image/png" href="assets/ctx404-wordmark.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="shell" id="top">
+    <header class="topbar">
+      <a class="brand" href="#top" aria-label="CTX404 home">
+        <span class="brand-ctx">CTX</span><span class="brand-pulse" aria-hidden="true"></span><span class="brand-404">404</span>
+      </a>
+      <div class="top-status" aria-label="Project status">
+        <span class="live-dot"></span><strong>PUBLIC BETA</strong><span>OPEN SOURCE · MIT</span>
+      </div>
+      <div class="top-actions">
+        <button class="language active" type="button" data-lang="en">EN</button>
+        <button class="language" type="button" data-lang="pt">PT-BR</button>
+        <a href="https://github.com/claudneysessa/ctx404">GitHub ↗</a>
+      </div>
+    </header>
+
+    <div class="workspace">
+      <aside class="sidebar">
+        <div class="side-intro">
+          <p class="eyebrow">CTX / SIGNAL STATUS</p>
+          <h1 data-en="Your AI forgot.<br>Your repository won't." data-pt="Sua IA esqueceu.<br>Seu repositório não vai esquecer.">Your AI forgot.<br>Your repository won't.</h1>
+          <p data-en="A one-time bootstrap for durable project context in Claude Code." data-pt="Uma inicialização única para contexto durável de projetos no Claude Code.">A one-time bootstrap for durable project context in Claude Code.</p>
+        </div>
+
+        <div class="signal-card" aria-label="Context signal diagnostic">
+          <div><span>NEW CHAT</span><b class="error">404</b></div>
+          <svg viewBox="0 0 320 70" role="img" aria-label="Context signal interrupted and restored">
+            <path class="signal-muted" d="M0 35h70l10-20 18 42 16-22h55l10-12 13 24 14-12h114"/>
+            <path class="signal-live" d="M192 47l14-12h114"/>
+            <rect x="184" y="31" width="9" height="9" class="fault"/>
+          </svg>
+          <div><span>PROJECT READY</span><b class="ok">200</b></div>
+        </div>
+
+        <nav aria-label="Page sections">
+          <a href="#why">01 / why</a>
+          <a href="#how">02 / how</a>
+          <a href="#architecture">03 / architecture</a>
+          <a href="#install">04 / install</a>
+          <a href="#limits">05 / limits</a>
+          <a href="#contribute">06 / contribute</a>
+        </nav>
+
+        <div class="side-foot">
+          <span>v0.1.0-beta.1</span>
+          <span data-en="English first · Português available" data-pt="Inglês inicial · Português disponível">English first · Português available</span>
+        </div>
+      </aside>
+
+      <main class="content">
+        <section class="hero" id="why">
+          <div class="hero-copy">
+            <p class="terminal"><span>$</span> ctx404 --explain</p>
+            <h2 data-en="Preserve your context.<br><em>Keep your momentum.</em>" data-pt="Preserve seu contexto.<br><em>Mantenha o ritmo.</em>">Preserve your context.<br><em>Keep your momentum.</em></h2>
+            <p class="lead" data-en="CTX404 installs a compact, indexed and versionable context protocol inside a new repository, so future Claude Code chats can recover what matters without rereading everything." data-pt="O CTX404 instala um protocolo de contexto compacto, indexado e versionável dentro de um novo repositório, para que novos chats do Claude Code recuperem o que importa sem reler tudo.">CTX404 installs a compact, indexed and versionable context protocol inside a new repository, so future Claude Code chats can recover what matters without rereading everything.</p>
+            <div class="hero-actions">
+              <a class="primary" href="#install" data-en="Install CTX404 →" data-pt="Instalar CTX404 →">Install CTX404 →</a>
+              <a href="#how" data-en="See how it works" data-pt="Entenda como funciona">See how it works</a>
+            </div>
+          </div>
+          <div class="hero-art">
+            <img src="assets/ctx404-wordmark.svg" alt="CTX404 pulse wordmark">
+            <div class="hero-art-caption"><span>SESSION ENDED</span><strong>CONTEXT SIGNAL: ACTIVE</strong></div>
+          </div>
+        </section>
+
+        <section class="statement">
+          <p data-en="The session ends. The context survives." data-pt="A sessão termina. O contexto sobrevive.">The session ends. The context survives.</p>
+          <span data-en="No magical memory. Magic is still in public beta." data-pt="Sem memória mágica. A mágica ainda está em beta público.">No magical memory. Magic is still in public beta.</span>
+        </section>
+
+        <section class="section" id="how">
+          <div class="section-head"><span>02</span><div><p class="eyebrow">LIFECYCLE</p><h3 data-en="Run once. The system stays." data-pt="Execute uma vez. O sistema fica.">Run once. The system stays.</h3></div></div>
+          <ol class="steps">
+            <li><b>01</b><h4 data-en="Bootstrap" data-pt="Inicializar">Bootstrap</h4><p data-en="CTX404 initializes Git and delegates Claude Code's native /init in an empty repository." data-pt="O CTX404 inicia o Git e delega o /init nativo do Claude Code em um repositório vazio.">CTX404 initializes Git and delegates Claude Code's native /init in an empty repository.</p></li>
+            <li><b>02</b><h4 data-en="Install the protocol" data-pt="Instalar o protocolo">Install the protocol</h4><p data-en="Governance, indexed JSON state, history, hooks, agents and deterministic helpers are written locally." data-pt="Governança, estado JSON indexado, histórico, hooks, agentes e auxiliares determinísticos são gravados localmente.">Governance, indexed JSON state, history, hooks, agents and deterministic helpers are written locally.</p></li>
+            <li><b>03</b><h4 data-en="Define the project" data-pt="Definir o projeto">Define the project</h4><p data-en="Claude refines scope and rules from your intent and verified repository evidence—not guesses." data-pt="O Claude refina escopo e regras a partir da sua intenção e de evidências verificadas — não de palpites.">Claude refines scope and rules from your intent and verified repository evidence—not guesses.</p></li>
+            <li><b>04</b><h4 data-en="Continue" data-pt="Continuar">Continue</h4><p data-en="The skill leaves. The repository maintains its own compact context across chats and machines." data-pt="A skill sai. O repositório mantém seu próprio contexto compacto entre chats e máquinas.">The skill leaves. The repository maintains its own compact context across chats and machines.</p></li>
+          </ol>
+        </section>
+
+        <section class="section" id="architecture">
+          <div class="section-head"><span>03</span><div><p class="eyebrow">ARCHITECTURE</p><h3 data-en="Load the signal, not the noise." data-pt="Carregue o sinal, não o ruído.">Load the signal, not the noise.</h3></div></div>
+          <div class="architecture">
+            <article><span>01</span><h4>current.json</h4><p data-en="The smallest resumable state: status, last completion, next step and active topics." data-pt="O menor estado retomável: status, última conclusão, próximo passo e tópicos ativos.">The smallest resumable state: status, last completion, next step and active topics.</p></article>
+            <article><span>02</span><h4>index.json</h4><p data-en="A compact map for finding relevant topics without loading the whole repository." data-pt="Um mapa compacto para encontrar tópicos relevantes sem carregar todo o repositório.">A compact map for finding relevant topics without loading the whole repository.</p></article>
+            <article><span>03</span><h4>topics/*.md</h4><p data-en="Detailed context loaded only when the current task needs it." data-pt="Contexto detalhado carregado somente quando a tarefa atual precisa.">Detailed context loaded only when the current task needs it.</p></article>
+            <article><span>04</span><h4>history.jsonl</h4><p data-en="Append-only checkpoints that preserve verified changes without bloating startup context." data-pt="Checkpoints append-only que preservam mudanças verificadas sem inflar o contexto inicial.">Append-only checkpoints that preserve verified changes without bloating startup context.</p></article>
+          </div>
+          <pre class="tree"><code>.claude/context/
+├── current.json      <span>// resume first</span>
+├── index.json        <span>// route next</span>
+├── history.jsonl     <span>// audit when needed</span>
+└── topics/*.md       <span>// load selectively</span></code></pre>
+        </section>
+
+        <section class="section" id="install">
+          <div class="section-head"><span>04</span><div><p class="eyebrow">INSTALL</p><h3 data-en="One command. Then /ctx404." data-pt="Um comando. Depois /ctx404.">One command. Then /ctx404.</h3></div></div>
+          <div class="installer">
+            <div class="tabs" role="tablist"><button class="tab active" type="button" data-platform="unix">macOS · Linux · WSL</button><button class="tab" type="button" data-platform="windows">Windows · PowerShell</button></div>
+            <div class="code-row"><span>$</span><code id="install-command">curl -fsSL https://raw.githubusercontent.com/claudneysessa/ctx404/main/install.sh | sh</code><button class="copy" type="button">copy</button></div>
+          </div>
+          <div class="run-flow"><span>EMPTY REPOSITORY</span><i>→</i><strong>/ctx404</strong><i>→</i><span>SELF-MAINTAINING CONTEXT</span></div>
+        </section>
+
+        <section class="section" id="limits">
+          <div class="section-head"><span>05</span><div><p class="eyebrow">HONEST LIMITS</p><h3 data-en="Delegation helper. Not magic." data-pt="Auxílio à delegação. Não mágica.">Delegation helper. Not magic.</h3></div></div>
+          <div class="limits-grid">
+            <div><h4 data-en="What CTX404 does" data-pt="O que o CTX404 faz">What CTX404 does</h4><ul><li data-en="Creates project-local governance and context structure" data-pt="Cria governança e estrutura de contexto locais">Creates project-local governance and context structure</li><li data-en="Provides token-aware retrieval routes" data-pt="Fornece rotas de recuperação conscientes de tokens">Provides token-aware retrieval routes</li><li data-en="Offers scoped Haiku and Sonnet helpers" data-pt="Oferece auxiliares Haiku e Sonnet com escopo limitado">Offers scoped Haiku and Sonnet helpers</li><li data-en="Validates state deterministically with Python" data-pt="Valida o estado deterministicamente com Python">Validates state deterministically with Python</li></ul></div>
+            <div><h4 data-en="What CTX404 cannot promise" data-pt="O que o CTX404 não promete">What CTX404 cannot promise</h4><ul><li data-en="Perfect or automatic model memory" data-pt="Memória perfeita ou automática do modelo">Perfect or automatic model memory</li><li data-en="Guaranteed delegation or token savings" data-pt="Delegação ou economia de tokens garantidas">Guaranteed delegation or token savings</li><li data-en="Correct project facts without good evidence" data-pt="Fatos corretos sem boas evidências">Correct project facts without good evidence</li><li data-en="A replacement for human review and judgment" data-pt="Substituir revisão e julgamento humanos">A replacement for human review and judgment</li></ul></div>
+          </div>
+        </section>
+
+        <section class="contribute" id="contribute">
+          <div><p class="terminal"><span>$</span> git checkout -b your-signal</p><h3 data-en="Break it. Test it. Improve it." data-pt="Quebre. Teste. Melhore.">Break it. Test it. Improve it.</h3><p data-en="CTX404 is a public beta. Issues, compatibility reports and focused pull requests are welcome in English or Portuguese." data-pt="O CTX404 está em beta público. Issues, relatos de compatibilidade e pull requests focados são bem-vindos em inglês ou português.">CTX404 is a public beta. Issues, compatibility reports and focused pull requests are welcome in English or Portuguese.</p></div>
+          <a class="primary" href="https://github.com/claudneysessa/ctx404/blob/main/CONTRIBUTING.md" data-en="Contribute →" data-pt="Contribuir →">Contribute →</a>
+        </section>
+
+        <footer><span>CTX404 · MIT · PUBLIC BETA</span><span>YOUR AI FORGOT. YOUR REPOSITORY WON'T.</span></footer>
+      </main>
+    </div>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
