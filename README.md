@@ -107,6 +107,10 @@ CTX404 keeps project context inside the repository. That makes it portable, but 
 
 Issues, compatibility reports and focused pull requests are welcome in English or Portuguese. Read [CONTRIBUTING.md](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md).
 
+## Creator
+
+CTX404 was created and is maintained by [Claudney Sarti Sessa](https://github.com/claudneysessa) — [@claudneysessa](https://github.com/claudneysessa).
+
 ## License
 
 [MIT](LICENSE)

@@ -107,6 +107,10 @@ O contexto fica dentro do repositório. Isso facilita a portabilidade, mas exige
 
 Issues, relatos de compatibilidade e pull requests focados são bem-vindos em português ou inglês. Leia [CONTRIBUTING.md](CONTRIBUTING.md) e o [Código de Conduta](CODE_OF_CONDUCT.md).
 
+## Criador
+
+O CTX404 foi criado e é mantido por [Claudney Sarti Sessa](https://github.com/claudneysessa) — [@claudneysessa](https://github.com/claudneysessa).
+
 ## Licença
 
 [MIT](LICENSE)
