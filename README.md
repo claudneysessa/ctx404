@@ -16,7 +16,7 @@
 
 CTX404 is an open-source Claude Code skill that bootstraps durable, indexed and token-aware context inside new or existing repositories.
 
-For a new repository it initializes Git and delegates Claude Code's native `/init`. For an existing repository it skips `/init`, preserves current files and starts durable context from the installation point forward. Both modes install project-local governance, narrowly scoped Haiku and Sonnet helpers, and deterministic Python validation. The global skill is no longer a runtime dependency after installation.
+For a new repository it initializes Git and installs the context foundation directly. For an existing repository it preserves current files and starts durable context from the installation point forward. Both modes install project-local governance, narrowly scoped Haiku and Sonnet helpers, and deterministic Python validation. Native `/init` and recap are never run automatically; they remain optional, user-controlled orientation after installation. The global skill is no longer a runtime dependency after installation.
 
 **Run once. The skill leaves. The context system stays.** Clone the initialized repository on another machine and its rules, current state, index, history, hooks and maintenance helpers travel with the code.
 
@@ -47,7 +47,7 @@ CTX404 detects the repository automatically. Empty projects use the original boo
 
 Adoption means **install now and keep working**. CTX404 does not try to reconstruct the project's past, generate speculative documentation or spend a large-model session cataloguing everything. Context grows organically as future work touches each area.
 
-After installation, CTX404 recommends an optional manual baseline. Ask Claude for a concise, evidence-based repository summary or run native `/init` yourself, review the result, and approve it before saving anything as durable context.
+After installation, CTX404 recommends an optional manual baseline. Ask Claude for a concise, evidence-based repository recap or run native `/init` yourself, review the result, and approve it before saving anything as durable context.
 
 Installation stops instead of overwriting when a CTX404-managed agent, hook, script or context path already exists with unknown ownership.
 

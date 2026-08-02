@@ -29,7 +29,7 @@ Claude Code auto memory is disabled for this project. `.claude/context/` is the 
 
 After CTX404 finishes, take ownership of this workspace. Refine it from explicit user intent and verified repository evidence. Define only personas that materially help the project. Mark uncertain statements as assumptions and never invent missing facts. If no reliable purpose is available, ask one minimal question to establish it before refining the remaining fields.
 
-For an existing repository adoption, durable context starts at installation time. Do not scan or summarize the repository solely to reconstruct its past or fill this workspace. Let context grow as future work touches each area. After installation, recommend an optional concise project baseline or native `/init`; run either only when the user chooses it, show the result for approval, and save only verified facts.
+Durable context starts at installation time. For an existing repository, do not scan or summarize solely to reconstruct its past or fill this workspace; let context grow as future work touches each area. Native `/init` and recap are never part of automatic CTX404 installation. After installation, recommend an optional concise project recap or manual `/init`; run either only when the user chooses it, show the result for approval, and save only verified facts.
 
 ## Start every session
 

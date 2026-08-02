@@ -92,7 +92,7 @@ def prepare(target: Path) -> dict[str, object]:
         json.dumps(
             {
                 "version": CTX404_VERSION,
-                "phase": "awaiting-init" if mode == "new" else "ready-to-adopt",
+                "phase": "ready-to-install",
                 "mode": mode,
             }
         )
@@ -106,11 +106,7 @@ def prepare(target: Path) -> dict[str, object]:
         "mode": mode,
         "target": str(target),
         "gitInitialized": created_git,
-        "next": (
-            "Invoke Claude Code /init, then run the install phase."
-            if mode == "new"
-            else "Skip /init and run the install phase. Existing project files will be preserved."
-        ),
+        "next": "Run the install phase. Native /init and recap remain optional user guidance afterward.",
     }
 
 
@@ -284,15 +280,6 @@ def install(target: Path) -> dict[str, object]:
             "next": "CTX404 is already installed and valid. Continue working normally.",
         }
 
-    if mode == "new":
-        allowed = {"CLAUDE.md"}
-        unexpected = [item.name for item in visible_entries(target) if item.name not in allowed]
-        if unexpected:
-            raise BootstrapError(
-                "After /init, only CLAUDE.md may exist before CTX404 installation. "
-                f"Found: {', '.join(unexpected)}"
-            )
-
     conflicts = [relative for relative in MANAGED_FILES if (target / relative).exists()]
     if conflicts:
         raise BootstrapError("Refusing to overwrite existing managed paths: " + ", ".join(conflicts))
@@ -334,12 +321,12 @@ def install(target: Path) -> dict[str, object]:
         "validation": json.loads(result.stdout),
         "next": (
             "CTX404 is installed in a new repository. Refine the Project definition workspace from "
-            "explicit user intent and verified evidence, then synchronize README.md and the context index."
+            "explicit user intent and verified evidence, then synchronize README.md and the context index. "
+            "Native /init or a concise recap may be requested manually and reviewed first."
             if mode == "new"
             else "CTX404 adopted this existing repository without retrospective analysis. Durable context "
             "starts now. Continue working normally. Optionally ask Claude for a concise, evidence-based "
-            "project baseline and approve it before saving it as context. Native /init may also be run "
-            "manually and reviewed before incorporation."
+            "project recap or run native /init manually, then review it before saving it as context."
         ),
     }
 

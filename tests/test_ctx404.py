@@ -45,14 +45,11 @@ class BootstrapTests(unittest.TestCase):
             self.assertEqual(json.loads(result.stdout)["mode"], "adopt")
             self.assertEqual((target / "existing.txt").read_text(encoding="utf-8"), "keep")
 
-    def test_install_consolidates_governance_and_validates_context(self) -> None:
+    def test_new_install_creates_governance_directly_without_init(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             target = Path(directory)
             prepared = run_python(BOOTSTRAP, "prepare", "--target", target)
             self.assertEqual(prepared.returncode, 0, prepared.stdout)
-            native = "# Native project guidance\n\nKeep this line.\n"
-            (target / "CLAUDE.md").write_text(native, encoding="utf-8")
-
             installed = run_python(BOOTSTRAP, "install", "--target", target)
             self.assertEqual(installed.returncode, 0, installed.stderr + installed.stdout)
             payload = json.loads(installed.stdout)
@@ -60,8 +57,8 @@ class BootstrapTests(unittest.TestCase):
 
             governance = (target / "CLAUDE.md").read_text(encoding="utf-8")
             self.assertIn("ctx404:governance:start", governance)
-            self.assertIn(native.strip(), governance)
             self.assertEqual(governance.count("ctx404:governance:start"), 1)
+            self.assertIn("Project definition workspace", governance)
 
             helper = target / ".claude" / "scripts" / "context_tool.py"
             doctor = run_python(helper, "doctor", cwd=target)

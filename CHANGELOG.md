@@ -8,7 +8,8 @@ All notable CTX404 changes are documented here. The project follows Semantic Ver
 
 - Automatic detection of new and existing repositories.
 - Non-destructive adoption mode that starts durable context at installation time without reconstructing project history.
-- Optional, user-reviewed guidance for a concise project baseline or a manual native `/init` after adoption.
+- Optional, user-reviewed guidance for a concise project recap or a manual native `/init` after installation.
+- Direct deterministic installation without automatically invoking native `/init` or generating a recap.
 - Deterministic coverage for adoption, managed-path conflicts and repeated installation.
 
 ### Changed

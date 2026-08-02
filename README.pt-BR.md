@@ -16,7 +16,7 @@
 
 CTX404 é uma skill open source para Claude Code que inicializa contexto durável, indexado e consciente do consumo de tokens em repositórios novos ou existentes.
 
-Em um repositório novo, ela inicia o Git e delega o `/init` nativo do Claude Code. Em um repositório existente, pula o `/init`, preserva os arquivos atuais e começa o contexto durável a partir da instalação. Nos dois modos, instala governança local, auxiliares Haiku e Sonnet com escopo restrito e validação determinística em Python. Depois disso, a skill global deixa de ser dependência de execução.
+Em um repositório novo, ela inicia o Git e instala diretamente a fundação de contexto. Em um repositório existente, preserva os arquivos atuais e começa o contexto durável a partir da instalação. Nos dois modos, instala governança local, auxiliares Haiku e Sonnet com escopo restrito e validação determinística em Python. O `/init` nativo e o recap nunca rodam automaticamente; continuam como orientações opcionais controladas pelo usuário após a instalação. Depois disso, a skill global deixa de ser dependência de execução.
 
 **Execute uma vez. A skill sai. O sistema de contexto fica.** Ao clonar o repositório inicializado em outra máquina, regras, estado atual, índice, histórico, hooks e auxiliares viajam junto do código.
 
@@ -47,7 +47,7 @@ O CTX404 detecta o repositório automaticamente. Projetos vazios usam o bootstra
 
 Adoção significa **instalar agora e continuar trabalhando**. O CTX404 não tenta reconstruir o passado do projeto, gerar documentação especulativa nem gastar uma sessão de modelo caro catalogando tudo. O contexto cresce organicamente conforme o trabalho futuro toca cada área.
 
-Depois da instalação, o CTX404 recomenda um baseline manual opcional. Peça ao Claude um resumo conciso baseado em evidências ou execute você mesmo o `/init` nativo, revise o resultado e aprove antes de salvar qualquer informação como contexto durável.
+Depois da instalação, o CTX404 recomenda um baseline manual opcional. Peça ao Claude um recap conciso baseado em evidências ou execute você mesmo o `/init` nativo, revise o resultado e aprove antes de salvar qualquer informação como contexto durável.
 
 A instalação para em vez de sobrescrever quando encontra um agente, hook, script ou caminho de contexto gerenciado pelo CTX404 cuja origem seja desconhecida.
 
