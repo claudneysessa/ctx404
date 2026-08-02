@@ -2,6 +2,12 @@
 
 All notable CTX404 changes are documented here. The project follows Semantic Versioning where practical during beta development.
 
+## [Unreleased]
+
+### Added
+
+- `Why context lives in the repository` section in the governance template: durable context is versioned in the repository because the same work continues on more than one machine, and Git is what synchronizes them. Includes the portability test — does the mechanism reach the other machines through `git pull`? — and an explicit instruction not to fork the rule per repository.
+
 ## [0.3.0-beta.1] - 2026-08-02
 
 ### Added

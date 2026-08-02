@@ -8,6 +8,14 @@ Claude Code auto memory is disabled for this project. `.claude/context/` is the 
 
 {{AUTHORITY_POLICY}}
 
+## Why context lives in the repository
+
+The same work continues on more than one machine. Anything stored outside the repository — global model memory, machine-local settings, chat history — stays on the machine that produced it and is unavailable everywhere else. Git is what synchronizes machines, not the assistant.
+
+Test every proposed memory or context mechanism against one question: does it reach the other machines through `git pull`? If it does not, it is wrong, however convenient it looks.
+
+This rule is identical in every repository CTX404 initializes. Do not restate, extend, or fork it locally; a per-repository variant is exactly the divergence CTX404 exists to prevent. Project topics record what is specific to the project, never a second copy of these rules.
+
 ## Initial project identity
 
 - Project name: `{{PROJECT_NAME}}`
