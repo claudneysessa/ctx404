@@ -17,7 +17,8 @@
 - Bootstrap para repositórios novos e adoção não destrutiva de repositórios existentes.
 - Na adoção, o contexto começa na instalação; não há reconstrução automática do passado.
 - Contexto local, indexado e versionável; auxilia delegação sem prometer economia automática.
-- Landing page pública, documentação bilíngue, 9 testes determinísticos e laboratórios de continuidade disponíveis.
+- Landing page pública, documentação bilíngue, 9 testes determinísticos e dois laboratórios reais disponíveis.
+- `/init` e recap são apenas orientações manuais após instalar; nunca fazem parte do fluxo automático.
 - Incluído no portfólio pessoal nas categorias `Skills de IA` e `Open Source`.
 
 ## Como validar
@@ -29,8 +30,8 @@ python -m compileall -q scripts assets/templates/.claude
 
 ## Último marco
 
-- Commit: `3ae8cd4`
-- Entrega: beta público com narrativa de motivação e landing page publicada.
+- Commits: `d7f9327` e `0a99787`
+- Entrega: adoção segura de projetos existentes e instalação direta sem `/init` automático.
 
 ## Próximo passo recomendado
 

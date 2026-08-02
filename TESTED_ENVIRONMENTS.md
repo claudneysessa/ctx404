@@ -6,6 +6,7 @@ CTX404 makes compatibility claims only where there is evidence.
 
 | Date | Environment | Coverage | Result |
 |---|---|---|---|
+| 2026-08-02 | Windows, PowerShell, Python 3.14.6, Git, Claude Code 2.1.220 with Opus | Public install, direct new-project bootstrap, non-destructive adoption, independent-chat extension | Passed; 60 tests in the born project, 60 preserved on adoption, 62 after extension, clean context doctor |
 | 2026-08-02 | Windows, PowerShell, Python 3.14.6, Git, Claude Code 2.1.220 with Opus | Public install, `/ctx404` bootstrap, independent-chat implementation and independent-chat extension | Passed; 38 tests, clean context doctor and revision 2 |
 
 The detailed, sanitized evidence is in [`examples/calculator-lab/README.md`](examples/calculator-lab/README.md).
