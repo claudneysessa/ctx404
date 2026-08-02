@@ -8,7 +8,7 @@
 - Repositório: `claudneysessa/ctx404`
 - Demonstração: https://claudneysessa.github.io/ctx404/
 - Branch: `main`
-- Versão: `v0.2.0-beta.1`
+- Versão: `v0.3.0-beta.1`
 
 ## Estado validado
 
@@ -17,8 +17,9 @@
 - Bootstrap para repositórios novos e adoção não destrutiva de repositórios existentes.
 - Na adoção, o contexto começa na instalação; não há reconstrução automática do passado.
 - Contexto local, indexado e versionável; auxilia delegação sem prometer economia automática.
-- Landing page pública, documentação bilíngue, 9 testes determinísticos e dois laboratórios reais disponíveis.
+- Landing page pública, documentação bilíngue, 13 testes determinísticos e dois laboratórios reais disponíveis.
 - `/init` e recap são apenas orientações manuais após instalar; nunca fazem parte do fluxo automático.
+- Adoção detecta autoridades existentes e exige escolha explícita entre índice, exclusivo ou cancelamento antes de escrever.
 - Incluído no portfólio pessoal nas categorias `Skills de IA` e `Open Source`.
 
 ## Como validar

@@ -10,5 +10,9 @@
     "history": ".claude/context/history.jsonl",
     "readme": "README.md"
   },
+  "governance": {
+    "mode": "exclusive",
+    "authorities": []
+  },
   "topics": []
 }

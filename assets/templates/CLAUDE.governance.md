@@ -4,7 +4,9 @@
 
 This repository owns its durable context. Chat history and global model memory are not project records.
 
-Claude Code auto memory is disabled for this project. `.claude/context/` is the portable, Git-versioned memory system and the only durable project-context authority.
+Claude Code auto memory is disabled for this project. `.claude/context/` is the portable, Git-versioned continuity system.
+
+{{AUTHORITY_POLICY}}
 
 ## Initial project identity
 

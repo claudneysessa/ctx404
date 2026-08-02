@@ -15,10 +15,15 @@ from pathlib import Path
 
 SKILL_ROOT = Path(__file__).resolve().parent.parent
 TEMPLATES_ROOT = SKILL_ROOT / "assets" / "templates"
-CTX404_VERSION = "0.2.0-beta.1"
+CTX404_VERSION = "0.3.0-beta.1"
 GOVERNANCE_START = "<!-- ctx404:governance:start"
 GOVERNANCE_END = "<!-- ctx404:governance:end -->"
 PENDING_STATE = "ctx404-pending.json"
+LEGACY_VERSION = "0.2.0-beta.1"
+LEGACY_AUTHORITY_TEXT = (
+    "Claude Code auto memory is disabled for this project. `.claude/context/` is the portable, "
+    "Git-versioned memory system and the only durable project-context authority."
+)
 MANAGED_FILES = (
     ".claude/context/index.json",
     ".claude/context/current.json",
@@ -31,6 +36,21 @@ MANAGED_FILES = (
     ".claude/hooks/session_context.py",
     ".claude/hooks/guard_agent_bash.py",
     ".claude/scripts/context_tool.py",
+)
+AUTHORITY_CANDIDATES = (
+    (".planning/STATE.md", "project-state"),
+    ("STATE.md", "project-state"),
+    ("PROJECT_STATE.md", "project-state"),
+    (".planning", "planning-system"),
+    (".gsd", "planning-system"),
+    (".context", "context-system"),
+    (".memory", "memory-system"),
+    ("memory", "memory-system"),
+    (".ai/context", "context-system"),
+    (".ai/memory", "memory-system"),
+    ("docs/adr", "architecture-decisions"),
+    ("docs/adrs", "architecture-decisions"),
+    ("docs/decisions", "architecture-decisions"),
 )
 
 
@@ -72,10 +92,46 @@ def detect_mode(target: Path) -> str:
     return "new" if not visible_entries(target) else "adopt"
 
 
-def prepare(target: Path) -> dict[str, object]:
+def detect_authorities(target: Path) -> list[dict[str, str]]:
+    return [
+        {"path": relative, "kind": kind}
+        for relative, kind in AUTHORITY_CANDIDATES
+        if (target / relative).exists()
+    ]
+
+
+def authority_policy(authority_mode: str) -> str:
+    return (
+        "`.claude/context/` is the primary durable project-context authority. Any prior context or planning "
+        "system may be migrated or retired only through explicit user-approved work; installation itself "
+        "does not delete or rewrite it."
+        if authority_mode == "exclusive"
+        else "`.claude/context/` is the compact routing and continuity layer, not a replacement for existing "
+        "authorities. Read `.claude/context/index.json` → `governance.authorities`, update each fact in its "
+        "owning source, and store only compact pointers or cross-session state here."
+    )
+
+
+def prepare(target: Path, authority_mode: str | None = None) -> dict[str, object]:
     git = ensure_tool("git")
     ensure_tool("python")
     mode = detect_mode(target)
+    authorities = detect_authorities(target) if mode == "adopt" else []
+    if authorities and authority_mode is None:
+        return {
+            "ok": True,
+            "phase": "preflight",
+            "mode": mode,
+            "target": str(target),
+            "gitInitialized": False,
+            "authorityDecisionRequired": True,
+            "detectedAuthorities": authorities,
+            "choices": ["index", "exclusive", "cancel"],
+            "recommended": "index",
+            "next": "Ask the user to choose. Make no project changes before an explicit decision.",
+        }
+
+    selected_authority_mode = authority_mode or "exclusive"
 
     created_git = False
     if not (target / ".git").exists():
@@ -94,6 +150,8 @@ def prepare(target: Path) -> dict[str, object]:
                 "version": CTX404_VERSION,
                 "phase": "ready-to-install",
                 "mode": mode,
+                "authorityMode": selected_authority_mode,
+                "detectedAuthorities": authorities,
             }
         )
         + "\n",
@@ -106,6 +164,9 @@ def prepare(target: Path) -> dict[str, object]:
         "mode": mode,
         "target": str(target),
         "gitInitialized": created_git,
+        "authorityMode": selected_authority_mode,
+        "detectedAuthorities": authorities,
+        "authorityDecisionRequired": False,
         "next": "Run the install phase. Native /init and recap remain optional user guidance afterward.",
     }
 
@@ -120,13 +181,16 @@ def copy_template(relative_path: str, target: Path, created: list[str]) -> None:
     created.append(relative_path.replace("\\", "/"))
 
 
-def consolidate_claude_md(target: Path, mode: str, created: list[str], updated: list[str]) -> None:
+def consolidate_claude_md(
+    target: Path, mode: str, authority_mode: str, created: list[str], updated: list[str]
+) -> None:
     governance = (TEMPLATES_ROOT / "CLAUDE.governance.md").read_text(encoding="utf-8").strip()
     governance = governance.replace("{{PROJECT_NAME}}", target.name)
     governance = governance.replace("{{CTX404_VERSION}}", CTX404_VERSION)
     governance = governance.replace(
         "{{INSTALL_MODE}}", "new repository bootstrap" if mode == "new" else "existing repository adoption"
     )
+    governance = governance.replace("{{AUTHORITY_POLICY}}", authority_policy(authority_mode))
     claude_path = target / "CLAUDE.md"
     existing = claude_path.read_text(encoding="utf-8").strip() if claude_path.exists() else ""
 
@@ -178,13 +242,19 @@ def write_settings(target: Path, created: list[str], updated: list[str]) -> None
     (updated if existed else created).append(".claude/settings.json")
 
 
-def render_initial_json(target: Path, mode: str) -> None:
+def render_initial_json(
+    target: Path, mode: str, authority_mode: str, authorities: list[dict[str, str]]
+) -> None:
     now = datetime.now().astimezone().isoformat(timespec="seconds")
     context_root = target / ".claude" / "context"
     index_path = context_root / "index.json"
     index_text = index_path.read_text(encoding="utf-8").replace("{{CTX404_VERSION}}", CTX404_VERSION)
     index = json.loads(index_text)
     index["project"]["name"] = target.name
+    index["governance"] = {
+        "mode": authority_mode,
+        "authorities": authorities if authority_mode == "index" else [],
+    }
     if mode == "adopt" and not (target / "README.md").is_file():
         index["entrypoints"].pop("readme", None)
     index_path.write_text(json.dumps(index, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -207,7 +277,7 @@ def render_initial_json(target: Path, mode: str) -> None:
             if mode == "new"
             else "CTX404 adopted an existing repository; durable context starts from this point"
         ),
-        "refs": [],
+        "refs": [item["path"] for item in authorities] if authority_mode == "index" else [],
     }
     history_path.write_text(json.dumps(history_event, ensure_ascii=False) + "\n", encoding="utf-8")
 
@@ -252,8 +322,14 @@ def install(target: Path) -> dict[str, object]:
         raise BootstrapError("CTX404 prepare state is missing. Run the prepare phase first.")
     pending = json.loads(pending_path.read_text(encoding="utf-8"))
     mode = str(pending.get("mode", "new"))
+    authority_mode = str(pending.get("authorityMode", "exclusive"))
+    authorities = pending.get("detectedAuthorities", [])
     if mode not in {"new", "adopt"}:
         raise BootstrapError(f"Unsupported CTX404 installation mode: {mode}")
+    if authority_mode not in {"index", "exclusive"}:
+        raise BootstrapError(f"Unsupported authority mode: {authority_mode}")
+    if not isinstance(authorities, list):
+        raise BootstrapError("Invalid detected-authority state")
 
     existing_claude = (target / "CLAUDE.md").read_text(encoding="utf-8") if (target / "CLAUDE.md").exists() else ""
     has_start = GOVERNANCE_START in existing_claude
@@ -267,17 +343,30 @@ def install(target: Path) -> dict[str, object]:
         result = run([sys.executable, str(validator), "validate", "--root", str(target)], target)
         if result.returncode != 0:
             raise BootstrapError(result.stdout.strip() or result.stderr.strip() or "Existing context validation failed")
+        installed_index = json.loads((target / ".claude/context/index.json").read_text(encoding="utf-8"))
+        installed_version = str(installed_index.get("ctx404Version", "unknown"))
+        upgrade_available = installed_version != CTX404_VERSION
         pending_path.unlink()
         return {
             "ok": True,
             "phase": "install",
             "mode": mode,
+            "authorityMode": authority_mode,
+            "detectedAuthorities": authorities,
             "target": str(target),
             "alreadyInstalled": True,
+            "installedVersion": installed_version,
+            "skillVersion": CTX404_VERSION,
+            "upgradeAvailable": upgrade_available,
             "created": [],
             "updated": [],
             "validation": json.loads(result.stdout),
-            "next": "CTX404 is already installed and valid. Continue working normally.",
+            "next": (
+                "CTX404 is already installed and valid. Continue working normally."
+                if not upgrade_available
+                else "The project remains on its installed CTX404 version. No files were overlaid; a dedicated "
+                "reviewed migration is required to adopt the newer project protocol."
+            ),
         }
 
     conflicts = [relative for relative in MANAGED_FILES if (target / relative).exists()]
@@ -297,8 +386,8 @@ def install(target: Path) -> dict[str, object]:
         for relative in MANAGED_FILES:
             copy_template(relative, target, created)
         write_settings(target, created, updated)
-        consolidate_claude_md(target, mode, created, updated)
-        render_initial_json(target, mode)
+        consolidate_claude_md(target, mode, authority_mode, created, updated)
+        render_initial_json(target, mode, authority_mode, authorities)
 
         validator = target / ".claude" / "scripts" / "context_tool.py"
         result = run([sys.executable, str(validator), "validate", "--root", str(target)], target)
@@ -315,6 +404,8 @@ def install(target: Path) -> dict[str, object]:
         "ok": True,
         "phase": "install",
         "mode": mode,
+        "authorityMode": authority_mode,
+        "detectedAuthorities": authorities,
         "target": str(target),
         "created": created,
         "updated": updated,
@@ -331,17 +422,164 @@ def install(target: Path) -> dict[str, object]:
     }
 
 
+def read_installed_version(target: Path) -> str:
+    index_path = target / ".claude/context/index.json"
+    if not index_path.is_file():
+        raise BootstrapError("CTX404 project index is missing")
+    index = json.loads(index_path.read_text(encoding="utf-8"))
+    return str(index.get("ctx404Version", "unknown"))
+
+
+def upgrade_plan(target: Path, authority_mode: str | None = None) -> dict[str, object]:
+    installed_version = read_installed_version(target)
+    authorities = detect_authorities(target)
+    if installed_version == CTX404_VERSION:
+        return {
+            "ok": True,
+            "phase": "upgrade-plan",
+            "target": str(target),
+            "installedVersion": installed_version,
+            "targetVersion": CTX404_VERSION,
+            "upgradeRequired": False,
+            "changes": [],
+        }
+    if installed_version != LEGACY_VERSION:
+        raise BootstrapError(
+            f"No reviewed migration path from {installed_version} to {CTX404_VERSION}"
+        )
+    if authorities and authority_mode is None:
+        return {
+            "ok": True,
+            "phase": "upgrade-plan",
+            "target": str(target),
+            "installedVersion": installed_version,
+            "targetVersion": CTX404_VERSION,
+            "upgradeRequired": True,
+            "authorityDecisionRequired": True,
+            "detectedAuthorities": authorities,
+            "choices": ["index", "exclusive", "cancel"],
+            "recommended": "index",
+            "changes": ["CLAUDE.md authority policy", ".claude/context/index.json governance map", "history checkpoint"],
+        }
+    return {
+        "ok": True,
+        "phase": "upgrade-plan",
+        "target": str(target),
+        "installedVersion": installed_version,
+        "targetVersion": CTX404_VERSION,
+        "upgradeRequired": True,
+        "authorityDecisionRequired": False,
+        "authorityMode": authority_mode or "exclusive",
+        "detectedAuthorities": authorities,
+        "changes": ["CLAUDE.md authority policy", ".claude/context/index.json governance map", "history checkpoint"],
+        "preserved": ["current state", "topics", "project definition", "existing guidance", "project files"],
+    }
+
+
+def upgrade_apply(target: Path, authority_mode: str | None) -> dict[str, object]:
+    plan = upgrade_plan(target, authority_mode)
+    if not plan.get("upgradeRequired"):
+        return {**plan, "phase": "upgrade-apply", "applied": False}
+    if plan.get("authorityDecisionRequired"):
+        raise BootstrapError("Authority decision is required before upgrade")
+    selected_mode = str(plan["authorityMode"])
+    authorities = plan["detectedAuthorities"]
+
+    claude_path = target / "CLAUDE.md"
+    index_path = target / ".claude/context/index.json"
+    history_path = target / ".claude/context/history.jsonl"
+    validator = target / ".claude/scripts/context_tool.py"
+    if not all(path.is_file() for path in (claude_path, index_path, history_path, validator)):
+        raise BootstrapError("Installed CTX404 project is incomplete; refusing migration")
+
+    claude = claude_path.read_text(encoding="utf-8")
+    old_marker = f'<!-- ctx404:governance:start version="{LEGACY_VERSION}" schema="1" -->'
+    new_marker = f'<!-- ctx404:governance:start version="{CTX404_VERSION}" schema="1" -->'
+    if old_marker not in claude:
+        raise BootstrapError("Expected legacy governance marker was not found; refusing migration")
+    if LEGACY_AUTHORITY_TEXT not in claude:
+        raise BootstrapError("Legacy authority policy was customized; manual migration is required")
+
+    backup_root = target / ".git" / f"ctx404-upgrade-backup-{uuid.uuid4().hex}"
+    backup_existing(
+        target,
+        ("CLAUDE.md", ".claude/context/index.json", ".claude/context/history.jsonl"),
+        backup_root,
+    )
+    try:
+        new_policy = (
+            "Claude Code auto memory is disabled for this project. `.claude/context/` is the portable, "
+            "Git-versioned continuity system.\n\n" + authority_policy(selected_mode)
+        )
+        claude_path.write_text(
+            claude.replace(old_marker, new_marker, 1).replace(LEGACY_AUTHORITY_TEXT, new_policy, 1),
+            encoding="utf-8",
+            newline="\n",
+        )
+
+        index = json.loads(index_path.read_text(encoding="utf-8"))
+        index["ctx404Version"] = CTX404_VERSION
+        index["governance"] = {
+            "mode": selected_mode,
+            "authorities": authorities if selected_mode == "index" else [],
+        }
+        index_path.write_text(json.dumps(index, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+        event = {
+            "at": datetime.now().astimezone().isoformat(timespec="seconds"),
+            "type": "upgrade",
+            "summary": f"CTX404 project protocol upgraded from {LEGACY_VERSION} to {CTX404_VERSION}",
+            "refs": [item["path"] for item in authorities] if selected_mode == "index" else [],
+        }
+        with history_path.open("a", encoding="utf-8", newline="\n") as stream:
+            stream.write(json.dumps(event, ensure_ascii=False) + "\n")
+
+        result = run([sys.executable, str(validator), "doctor", "--root", str(target)], target)
+        if result.returncode != 0:
+            raise BootstrapError(result.stdout.strip() or result.stderr.strip() or "Post-upgrade validation failed")
+        validation = json.loads(result.stdout)
+        if not validation.get("ok"):
+            raise BootstrapError("Post-upgrade doctor reported issues")
+    except Exception:
+        rollback(target, [], backup_root)
+        raise
+    if backup_root.exists():
+        shutil.rmtree(backup_root)
+
+    return {
+        "ok": True,
+        "phase": "upgrade-apply",
+        "target": str(target),
+        "applied": True,
+        "fromVersion": LEGACY_VERSION,
+        "toVersion": CTX404_VERSION,
+        "authorityMode": selected_mode,
+        "detectedAuthorities": authorities,
+        "validation": validation,
+        "preserved": plan["preserved"],
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="phase", required=True)
-    for phase in ("prepare", "install"):
+    for phase in ("prepare", "install", "upgrade-plan", "upgrade-apply"):
         command = subparsers.add_parser(phase)
         command.add_argument("--target", default=".", help="Project directory (default: current directory)")
+        if phase in {"prepare", "upgrade-plan", "upgrade-apply"}:
+            command.add_argument("--authority-mode", choices=("index", "exclusive"))
     args = parser.parse_args()
 
     try:
         target = resolve_target(args.target)
-        result = prepare(target) if args.phase == "prepare" else install(target)
+        if args.phase == "prepare":
+            result = prepare(target, args.authority_mode)
+        elif args.phase == "install":
+            result = install(target)
+        elif args.phase == "upgrade-plan":
+            result = upgrade_plan(target, args.authority_mode)
+        else:
+            result = upgrade_apply(target, args.authority_mode)
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0
     except (BootstrapError, OSError, json.JSONDecodeError) as exc:

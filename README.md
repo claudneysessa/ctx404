@@ -21,7 +21,7 @@
 
 CTX404 is an open-source Claude Code skill that bootstraps durable, indexed and token-aware context inside new or existing repositories.
 
-For a new repository it initializes Git and installs the context foundation directly. For an existing repository it preserves current files and starts durable context from the installation point forward. Both modes install project-local governance, narrowly scoped Haiku and Sonnet helpers, and deterministic Python validation. Native `/init` and recap are never run automatically; they remain optional, user-controlled orientation after installation. The global skill is no longer a runtime dependency after installation.
+For a new repository it initializes Git and installs the context foundation directly. For an existing repository it preserves current files and starts durable context from the installation point forward. If it detects a pre-existing state, planning, memory or decision system, it stops before writing and asks how authority should be handled. Both modes install project-local governance, narrowly scoped Haiku and Sonnet helpers, and deterministic Python validation. Native `/init` and recap are never run automatically; they remain optional, user-controlled orientation after installation. The global skill is no longer a runtime dependency after installation.
 
 **Run once. The skill leaves. The context system stays.** Clone the initialized repository on another machine and its rules, current state, index, history, hooks and maintenance helpers travel with the code.
 
@@ -99,6 +99,22 @@ Adoption means **install now and keep working**. CTX404 does not try to reconstr
 After installation, CTX404 recommends an optional manual baseline. Ask Claude for a concise, evidence-based repository recap or run native `/init` yourself, review the result, and approve it before saving anything as durable context.
 
 Installation stops instead of overwriting when a CTX404-managed agent, hook, script or context path already exists with unknown ownership.
+
+### Existing-authority guard
+
+Preserving files is not enough; CTX404 also preserves how the repository already thinks. Its preflight checks known project-level signals such as state files, planning systems, memory folders and architecture-decision directories. When overlap is possible, it makes no project changes and asks you to choose:
+
+- **Index — recommended:** existing sources remain authoritative; CTX404 becomes the compact routing and cross-session continuity layer.
+- **Exclusive:** CTX404 becomes the primary durable-context authority. Previous systems are still preserved and may be migrated or retired only through separate explicit work.
+- **Cancel:** stop without installing or initializing Git.
+
+In index mode, `.claude/context/index.json` records the detected paths under `governance.authorities`. CTX404 points to those sources instead of copying their content into a second, weaker truth.
+
+### Already initialized projects
+
+Updating the global skill does **not** update repositories that already contain CTX404. The planted protocol is intentionally self-contained. Rerunning `/ctx404` validates the installed project version and reports whether a newer skill exists, but never overlays project files.
+
+Use `/ctx404 upgrade` explicitly to request a reviewed migration. CTX404 first shows the installed and target versions, exact changes, preserved state and any authority decision. Only after approval does it create a local backup, apply a known version-to-version migration, run the context doctor and restore the backup automatically on failure. The first supported path is `v0.2.0-beta.1 → v0.3.0-beta.1`.
 
 ## What it creates
 

@@ -45,6 +45,48 @@ class BootstrapTests(unittest.TestCase):
             self.assertEqual(json.loads(result.stdout)["mode"], "adopt")
             self.assertEqual((target / "existing.txt").read_text(encoding="utf-8"), "keep")
 
+    def test_prepare_stops_before_git_when_existing_authority_needs_decision(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory)
+            state = target / ".planning" / "STATE.md"
+            state.parent.mkdir()
+            state.write_text("# Existing state\n", encoding="utf-8")
+
+            result = run_python(BOOTSTRAP, "prepare", "--target", target)
+            self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
+            payload = json.loads(result.stdout)
+            self.assertTrue(payload["authorityDecisionRequired"])
+            self.assertEqual(payload["recommended"], "index")
+            self.assertIn({"path": ".planning/STATE.md", "kind": "project-state"}, payload["detectedAuthorities"])
+            self.assertFalse((target / ".git").exists())
+            self.assertEqual(state.read_text(encoding="utf-8"), "# Existing state\n")
+
+    def test_index_mode_preserves_and_registers_existing_authority(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory)
+            state = target / ".planning" / "STATE.md"
+            state.parent.mkdir()
+            state.write_text("# Existing state\n", encoding="utf-8")
+
+            prepared = run_python(
+                BOOTSTRAP, "prepare", "--target", target, "--authority-mode", "index"
+            )
+            self.assertEqual(prepared.returncode, 0, prepared.stderr + prepared.stdout)
+            installed = run_python(BOOTSTRAP, "install", "--target", target)
+            self.assertEqual(installed.returncode, 0, installed.stderr + installed.stdout)
+            payload = json.loads(installed.stdout)
+            self.assertEqual(payload["authorityMode"], "index")
+            self.assertEqual(state.read_text(encoding="utf-8"), "# Existing state\n")
+
+            index = json.loads((target / ".claude/context/index.json").read_text(encoding="utf-8"))
+            self.assertEqual(index["governance"]["mode"], "index")
+            self.assertIn(
+                {"path": ".planning/STATE.md", "kind": "project-state"},
+                index["governance"]["authorities"],
+            )
+            governance = (target / "CLAUDE.md").read_text(encoding="utf-8")
+            self.assertIn("routing and continuity layer", governance)
+
     def test_new_install_creates_governance_directly_without_init(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             target = Path(directory)
@@ -147,6 +189,92 @@ class BootstrapTests(unittest.TestCase):
             self.assertEqual(second_install.returncode, 0, second_install.stderr + second_install.stdout)
             self.assertTrue(json.loads(second_install.stdout)["alreadyInstalled"])
             self.assertEqual((target / "CLAUDE.md").read_text(encoding="utf-8"), first_claude)
+
+    def test_reinstall_reports_version_drift_without_overlay(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory)
+            prepared = run_python(BOOTSTRAP, "prepare", "--target", target)
+            self.assertEqual(prepared.returncode, 0, prepared.stderr + prepared.stdout)
+            installed = run_python(BOOTSTRAP, "install", "--target", target)
+            self.assertEqual(installed.returncode, 0, installed.stderr + installed.stdout)
+
+            index_path = target / ".claude/context/index.json"
+            index = json.loads(index_path.read_text(encoding="utf-8"))
+            index["ctx404Version"] = "0.2.0-beta.1"
+            index_path.write_text(json.dumps(index, indent=2) + "\n", encoding="utf-8")
+            claude_path = target / "CLAUDE.md"
+            claude = claude_path.read_text(encoding="utf-8").replace(
+                'version="0.3.0-beta.1"', 'version="0.2.0-beta.1"', 1
+            )
+            claude_path.write_text(claude, encoding="utf-8")
+            before = claude_path.read_text(encoding="utf-8")
+
+            second_prepare = run_python(BOOTSTRAP, "prepare", "--target", target)
+            self.assertEqual(second_prepare.returncode, 0, second_prepare.stderr + second_prepare.stdout)
+            second_install = run_python(BOOTSTRAP, "install", "--target", target)
+            self.assertEqual(second_install.returncode, 0, second_install.stderr + second_install.stdout)
+            payload = json.loads(second_install.stdout)
+            self.assertTrue(payload["alreadyInstalled"])
+            self.assertTrue(payload["upgradeAvailable"])
+            self.assertEqual(payload["installedVersion"], "0.2.0-beta.1")
+            self.assertEqual(payload["skillVersion"], "0.3.0-beta.1")
+            self.assertEqual(claude_path.read_text(encoding="utf-8"), before)
+
+    def test_reviewed_upgrade_migrates_v02_without_losing_project_context(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory)
+            prepared = run_python(BOOTSTRAP, "prepare", "--target", target)
+            self.assertEqual(prepared.returncode, 0, prepared.stderr + prepared.stdout)
+            installed = run_python(BOOTSTRAP, "install", "--target", target)
+            self.assertEqual(installed.returncode, 0, installed.stderr + installed.stdout)
+
+            index_path = target / ".claude/context/index.json"
+            index = json.loads(index_path.read_text(encoding="utf-8"))
+            index["ctx404Version"] = "0.2.0-beta.1"
+            index.pop("governance", None)
+            index_path.write_text(json.dumps(index, indent=2) + "\n", encoding="utf-8")
+
+            claude_path = target / "CLAUDE.md"
+            claude = claude_path.read_text(encoding="utf-8")
+            current_policy = (
+                "Claude Code auto memory is disabled for this project. `.claude/context/` is the portable, "
+                "Git-versioned continuity system.\n\n"
+                "`.claude/context/` is the primary durable project-context authority. Any prior context or planning "
+                "system may be migrated or retired only through explicit user-approved work; installation itself "
+                "does not delete or rewrite it."
+            )
+            legacy_policy = (
+                "Claude Code auto memory is disabled for this project. `.claude/context/` is the portable, "
+                "Git-versioned memory system and the only durable project-context authority."
+            )
+            claude = claude.replace('version="0.3.0-beta.1"', 'version="0.2.0-beta.1"', 1)
+            claude = claude.replace(current_policy, legacy_policy, 1)
+            claude = claude.replace("Purpose: pending definition", "Purpose: preserve this custom definition", 1)
+            claude_path.write_text(claude, encoding="utf-8")
+            current_before = (target / ".claude/context/current.json").read_text(encoding="utf-8")
+
+            plan = run_python(
+                BOOTSTRAP, "upgrade-plan", "--target", target, "--authority-mode", "exclusive"
+            )
+            self.assertEqual(plan.returncode, 0, plan.stderr + plan.stdout)
+            self.assertTrue(json.loads(plan.stdout)["upgradeRequired"])
+            applied = run_python(
+                BOOTSTRAP, "upgrade-apply", "--target", target, "--authority-mode", "exclusive"
+            )
+            self.assertEqual(applied.returncode, 0, applied.stderr + applied.stdout)
+            payload = json.loads(applied.stdout)
+            self.assertTrue(payload["applied"])
+            self.assertTrue(payload["validation"]["ok"])
+            self.assertEqual(
+                (target / ".claude/context/current.json").read_text(encoding="utf-8"), current_before
+            )
+            migrated_claude = claude_path.read_text(encoding="utf-8")
+            self.assertIn("Purpose: preserve this custom definition", migrated_claude)
+            self.assertIn('version="0.3.0-beta.1"', migrated_claude)
+            migrated_index = json.loads(index_path.read_text(encoding="utf-8"))
+            self.assertEqual(migrated_index["governance"]["mode"], "exclusive")
+            history = (target / ".claude/context/history.jsonl").read_text(encoding="utf-8")
+            self.assertIn('"type": "upgrade"', history)
 
     def test_install_requires_prepare_state(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

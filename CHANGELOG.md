@@ -2,9 +2,21 @@
 
 All notable CTX404 changes are documented here. The project follows Semantic Versioning where practical during beta development.
 
-## Unreleased
+## [0.3.0-beta.1] - 2026-08-02
+
+### Added
+
+- Existing-authority preflight for state, planning, memory, context and architecture-decision systems.
+- Explicit `index`, `exclusive` or `cancel` decision before modifying a repository with overlapping governance.
+- `governance.authorities` routing map in the compact context index.
 
 ### Changed
+
+- `index` is the recommended safe adoption mode; CTX404 points to existing authorities instead of duplicating them.
+- Preflight now stops before Git initialization when an authority decision is required.
+- Repeated installation reports project and skill versions without silently upgrading planted repositories.
+- Explicit `/ctx404 upgrade` workflow with read-only planning, versioned migration, local backup, doctor validation and rollback.
+- First reviewed project migration path: `v0.2.0-beta.1` to `v0.3.0-beta.1`.
 
 - Requirements now appear before installation in both README languages and on the landing page.
 - Inspection-first installation is recommended, with the remote one-command path explicitly labeled as a convenience that executes remote code.
@@ -42,3 +54,4 @@ All notable CTX404 changes are documented here. The project follows Semantic Ver
 
 [0.1.0-beta.1]: https://github.com/claudneysessa/ctx404/releases/tag/v0.1.0-beta.1
 [0.2.0-beta.1]: https://github.com/claudneysessa/ctx404/releases/tag/v0.2.0-beta.1
+[0.3.0-beta.1]: https://github.com/claudneysessa/ctx404/releases/tag/v0.3.0-beta.1

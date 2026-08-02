@@ -16,7 +16,7 @@
   <meta name="twitter:image" content="https://claudneysessa.github.io/ctx404/assets/ctx404-social-card.png">
   <title>CTX404 — Preserve your context</title>
   <link rel="icon" type="image/png" href="assets/ctx404-wordmark.png">
-  <link rel="stylesheet" href="styles.css?v=install-audit-1">
+  <link rel="stylesheet" href="styles.css?v=authority-guard-1">
 </head>
 <body>
   <div class="shell" id="top">
@@ -24,7 +24,7 @@
       <div class="brand-block">
         <a class="brand" href="#top" aria-label="CTX404 home"><span class="prompt-mark">~/</span><span id="brand-command" aria-label="ctx404"></span><span class="type-cursor" aria-hidden="true">_</span></a>
         <div class="status-badges" aria-label="Project status">
-          <span><b>release</b><strong>v0.2.0-beta.1</strong></span>
+          <span><b>release</b><strong>v0.3.0-beta.1</strong></span>
           <span><b>tests</b><strong>passing</strong></span>
           <span><b>license</b><strong>MIT</strong></span>
           <span><b>status</b><strong>public</strong></span>
@@ -40,7 +40,7 @@
 
     <div class="beta-strip" aria-label="Public beta and open source project">
       <strong>PUBLIC BETA</strong>
-      <span>× OPEN SOURCE · MIT LICENSE · v0.2.0</span>
+      <span>× OPEN SOURCE · MIT LICENSE · v0.3.0</span>
       <a href="https://github.com/claudneysessa/ctx404/issues" data-en="TEST IT · OPEN AN ISSUE ↗" data-pt="TESTE · ABRA UMA ISSUE ↗">TEST IT · OPEN AN ISSUE ↗</a>
     </div>
 
@@ -80,7 +80,7 @@
         </nav>
 
         <div class="side-foot">
-          <span>v0.2.0-beta.1</span>
+          <span>v0.3.0-beta.1</span>
           <span data-en="English first · Português available" data-pt="Inglês inicial · Português disponível">English first · Português available</span>
         </div>
       </aside>
@@ -101,7 +101,7 @@
             <div class="boot-body">
               <p><span>$</span> claude</p>
               <p><span>›</span> /ctx404</p>
-              <ul><li>mode detected</li><li>existing files preserved</li><li>context protocol planted</li><li>governance validated</li></ul>
+              <ul><li>mode detected</li><li>existing authorities guarded</li><li>context protocol planted</li><li>governance validated</li></ul>
               <strong>repository is self-maintaining<span class="type-cursor">_</span></strong>
             </div>
           </div>
@@ -134,6 +134,18 @@
             <li><b>03</b><h4 data-en="Define the project" data-pt="Definir o projeto">Define the project</h4><p data-en="Claude refines scope and rules from your intent and verified repository evidence—not guesses." data-pt="O Claude refina escopo e regras a partir da sua intenção e de evidências verificadas — não de palpites.">Claude refines scope and rules from your intent and verified repository evidence—not guesses.</p></li>
             <li><b>04</b><h4 data-en="Continue" data-pt="Continuar">Continue</h4><p data-en="The skill leaves. The repository maintains its own compact context across chats and machines." data-pt="A skill sai. O repositório mantém seu próprio contexto compacto entre chats e máquinas.">The skill leaves. The repository maintains its own compact context across chats and machines.</p></li>
           </ol>
+          <div class="authority-guard">
+            <div class="guard-copy">
+              <p class="terminal"><span>$</span> ctx404 --authority-check</p>
+              <h4 data-en="Your repository may already have a brain." data-pt="Seu repositório talvez já tenha um cérebro.">Your repository may already have a brain.</h4>
+              <p data-en="When CTX404 detects an existing state, planning, memory or decision system, it stops before writing. Preserving files is not enough; adoption must preserve authority." data-pt="Quando o CTX404 detecta um sistema existente de estado, planejamento, memória ou decisões, ele para antes de escrever. Preservar arquivos não basta; a adoção precisa preservar a autoridade.">When CTX404 detects an existing state, planning, memory or decision system, it stops before writing. Preserving files is not enough; adoption must preserve authority.</p>
+            </div>
+            <div class="authority-choices">
+              <article class="recommended"><span>01 · RECOMMENDED</span><h5>INDEX</h5><p data-en="Keep existing sources authoritative. CTX404 routes to them." data-pt="Mantenha as fontes existentes como autoridades. O CTX404 aponta para elas.">Keep existing sources authoritative. CTX404 routes to them.</p></article>
+              <article><span>02 · EXPLICIT</span><h5>EXCLUSIVE</h5><p data-en="Make CTX404 primary. Migration remains separate and user-approved." data-pt="Torne o CTX404 principal. A migração continua separada e aprovada pelo usuário.">Make CTX404 primary. Migration remains separate and user-approved.</p></article>
+              <article><span>03 · SAFE EXIT</span><h5>CANCEL</h5><p data-en="Stop before installation or Git initialization." data-pt="Pare antes da instalação ou inicialização do Git.">Stop before installation or Git initialization.</p></article>
+            </div>
+          </div>
         </section>
 
         <section class="section" id="architecture">
@@ -143,6 +155,7 @@
             <article><span>02</span><h4>index.json</h4><p data-en="A compact map for finding relevant topics without loading the whole repository." data-pt="Um mapa compacto para encontrar tópicos relevantes sem carregar todo o repositório.">A compact map for finding relevant topics without loading the whole repository.</p></article>
             <article><span>03</span><h4>topics/*.md</h4><p data-en="Detailed context loaded only when the current task needs it." data-pt="Contexto detalhado carregado somente quando a tarefa atual precisa.">Detailed context loaded only when the current task needs it.</p></article>
             <article><span>04</span><h4>history.jsonl</h4><p data-en="Append-only checkpoints that preserve verified changes without bloating startup context." data-pt="Checkpoints append-only que preservam mudanças verificadas sem inflar o contexto inicial.">Append-only checkpoints that preserve verified changes without bloating startup context.</p></article>
+            <article><span>05</span><h4>governance.authorities</h4><p data-en="An ownership map that points to existing sources instead of manufacturing a second truth." data-pt="Um mapa de autoridade que aponta para fontes existentes em vez de fabricar uma segunda verdade.">An ownership map that points to existing sources instead of manufacturing a second truth.</p></article>
           </div>
           <pre class="tree"><code>.claude/context/
 ├── current.json      <span>// resume first</span>
@@ -178,6 +191,7 @@ python scripts/install.py --force</code></pre>
             <div class="code-row"><span>$</span><code id="install-command">curl -fsSL https://raw.githubusercontent.com/claudneysessa/ctx404/main/install.sh | sh</code><button class="copy" type="button">copy</button></div>
           </div>
           <p class="installer-scope" data-en="Installs only SKILL.md, scripts/, assets/ and references/ in your user-level Claude skills directory. Replacement is transactional." data-pt="Instala somente SKILL.md, scripts/, assets/ e references/ na pasta global de skills do Claude. A substituição é transacional.">Installs only SKILL.md, scripts/, assets/ and references/ in your user-level Claude skills directory. Replacement is transactional.</p>
+          <div class="upgrade-note"><span>!</span><p data-en="Already using CTX404? A global update never overlays the project. Use /ctx404 upgrade for a versioned plan, explicit approval, local backup, doctor validation and automatic rollback on failure. Supported now: v0.2 → v0.3." data-pt="Já usa CTX404? Uma atualização global nunca sobrepõe o projeto. Use /ctx404 upgrade para obter plano versionado, aprovação explícita, backup local, validação pelo doctor e rollback automático em caso de falha. Suportado agora: v0.2 → v0.3.">Already using CTX404? A global update never overlays the project. Use /ctx404 upgrade for a versioned plan, explicit approval, local backup, doctor validation and automatic rollback on failure. Supported now: v0.2 → v0.3.</p></div>
           <div class="run-flow"><span>NEW OR EXISTING REPOSITORY</span><i>→</i><strong>/ctx404</strong><i>→</i><span>SELF-MAINTAINING CONTEXT</span></div>
         </section>
 

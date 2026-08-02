@@ -21,7 +21,7 @@
 
 CTX404 é uma skill open source para Claude Code que inicializa contexto durável, indexado e consciente do consumo de tokens em repositórios novos ou existentes.
 
-Em um repositório novo, ela inicia o Git e instala diretamente a fundação de contexto. Em um repositório existente, preserva os arquivos atuais e começa o contexto durável a partir da instalação. Nos dois modos, instala governança local, auxiliares Haiku e Sonnet com escopo restrito e validação determinística em Python. O `/init` nativo e o recap nunca rodam automaticamente; continuam como orientações opcionais controladas pelo usuário após a instalação. Depois disso, a skill global deixa de ser dependência de execução.
+Em um repositório novo, ela inicia o Git e instala diretamente a fundação de contexto. Em um repositório existente, preserva os arquivos atuais e começa o contexto durável a partir da instalação. Se detectar um sistema anterior de estado, planejamento, memória ou decisões, interrompe antes de escrever e pergunta como a autoridade deve ser tratada. Nos dois modos, instala governança local, auxiliares Haiku e Sonnet com escopo restrito e validação determinística em Python. O `/init` nativo e o recap nunca rodam automaticamente; continuam como orientações opcionais controladas pelo usuário após a instalação. Depois disso, a skill global deixa de ser dependência de execução.
 
 **Execute uma vez. A skill sai. O sistema de contexto fica.** Ao clonar o repositório inicializado em outra máquina, regras, estado atual, índice, histórico, hooks e auxiliares viajam junto do código.
 
@@ -99,6 +99,22 @@ Adoção significa **instalar agora e continuar trabalhando**. O CTX404 não ten
 Depois da instalação, o CTX404 recomenda um baseline manual opcional. Peça ao Claude um recap conciso baseado em evidências ou execute você mesmo o `/init` nativo, revise o resultado e aprove antes de salvar qualquer informação como contexto durável.
 
 A instalação para em vez de sobrescrever quando encontra um agente, hook, script ou caminho de contexto gerenciado pelo CTX404 cuja origem seja desconhecida.
+
+### Guarda de autoridades existentes
+
+Preservar arquivos não basta; o CTX404 também preserva a forma como o repositório já pensa. O preflight verifica sinais conhecidos no nível do projeto, como arquivos de estado, sistemas de planejamento, pastas de memória e diretórios de decisões arquiteturais. Quando pode haver sobreposição, não altera o projeto e pede uma escolha:
+
+- **Índice — recomendado:** as fontes existentes continuam autoritativas; o CTX404 vira a camada compacta de roteamento e continuidade entre sessões.
+- **Exclusivo:** o CTX404 vira a autoridade principal de contexto durável. Os sistemas anteriores continuam preservados e só podem ser migrados ou aposentados em um trabalho separado e explicitamente aprovado.
+- **Cancelar:** interromper sem instalar nem inicializar o Git.
+
+No modo índice, `.claude/context/index.json` registra os caminhos detectados em `governance.authorities`. O CTX404 aponta para essas fontes em vez de copiar seu conteúdo para uma segunda verdade mais fraca.
+
+### Projetos já inicializados
+
+Atualizar a skill global **não** atualiza repositórios que já contêm o CTX404. O protocolo plantado é intencionalmente autônomo. Executar `/ctx404` novamente valida a versão instalada no projeto e informa se existe uma skill mais nova, mas nunca sobrepõe os arquivos.
+
+Use `/ctx404 upgrade` explicitamente para solicitar uma migração revisada. Primeiro o CTX404 mostra as versões instalada e alvo, as mudanças exatas, o estado preservado e qualquer decisão de autoridade. Somente após aprovação ele cria um backup local, aplica uma migração conhecida entre versões, executa o doctor de contexto e restaura o backup automaticamente se houver falha. O primeiro caminho suportado é `v0.2.0-beta.1 → v0.3.0-beta.1`.
 
 ## Estrutura criada
 
