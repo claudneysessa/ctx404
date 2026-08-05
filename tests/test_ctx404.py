@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import re
 import subprocess
 import sys
 import tempfile
@@ -12,6 +13,24 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 BOOTSTRAP = ROOT / "scripts" / "bootstrap.py"
 INSTALLER = ROOT / "scripts" / "install.py"
+FIXTURES = Path(__file__).resolve().parent / "fixtures"
+INSTRUCTIONS = ".claude/ctx404-instructions.md"
+DEFINITION = ".claude/context/project-definition.md"
+CONTEXT_RULE = ".claude/rules/ctx404-context.md"
+# Always-loaded footprint budget. The split exists to keep this small; guard it against regression.
+CORE_BUDGET_CHARS = 4200
+
+LEGACY_AUTHORITY_TEXT = (
+    "Claude Code auto memory is disabled for this project. `.claude/context/` is the portable, "
+    "Git-versioned memory system and the only durable project-context authority."
+)
+CURRENT_AUTHORITY_TEXT = (
+    "Claude Code auto memory is disabled for this project. `.claude/context/` is the portable, "
+    "Git-versioned continuity system.\n\n"
+    "`.claude/context/` is the primary durable project-context authority. Any prior context or planning "
+    "system may be migrated or retired only through explicit user-approved work; installation itself "
+    "does not delete or rewrite it."
+)
 
 
 def run_python(*args: object, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
@@ -22,6 +41,40 @@ def run_python(*args: object, cwd: Path | None = None) -> subprocess.CompletedPr
         capture_output=True,
         check=False,
     )
+
+
+def legacy_claude_md(version: str, project_name: str, purpose: str) -> str:
+    """Rebuild a pre-0.4.0 CLAUDE.md, where the whole protocol lived inline."""
+    block = (FIXTURES / "governance-0.3.0.md").read_text(encoding="utf-8").strip()
+    block = block.replace("{{CTX404_VERSION}}", version)
+    block = block.replace("{{PROJECT_NAME}}", project_name)
+    block = block.replace("{{INSTALL_MODE}}", "new repository bootstrap")
+    policy = LEGACY_AUTHORITY_TEXT if version == "0.2.0-beta.1" else CURRENT_AUTHORITY_TEXT
+    block = block.replace("{{AUTHORITY_POLICY}}", "")
+    block = block.replace(
+        "Claude Code auto memory is disabled for this project. `.claude/context/` is the portable, "
+        "Git-versioned continuity system.",
+        policy,
+        1,
+    )
+    block = block.replace("Purpose: pending definition", f"Purpose: {purpose}", 1)
+    guidance = "# Project Guidance\n\nProject-specific guidance will evolve as the project is defined."
+    return f"{block}\n\n---\n\n{guidance}\n"
+
+
+def downgrade_install(target: Path, version: str, purpose: str, drop_governance: bool) -> None:
+    """Turn a freshly installed 0.4.0 project back into a pre-0.4.0 one for migration tests."""
+    (target / "CLAUDE.md").write_text(
+        legacy_claude_md(version, target.name, purpose), encoding="utf-8", newline="\n"
+    )
+    for relative in (INSTRUCTIONS, DEFINITION, CONTEXT_RULE):
+        (target / relative).unlink()
+    index_path = target / ".claude/context/index.json"
+    index = json.loads(index_path.read_text(encoding="utf-8"))
+    index["ctx404Version"] = version
+    if drop_governance:
+        index.pop("governance", None)
+    index_path.write_text(json.dumps(index, indent=2) + "\n", encoding="utf-8")
 
 
 class BootstrapTests(unittest.TestCase):
@@ -84,8 +137,9 @@ class BootstrapTests(unittest.TestCase):
                 {"path": ".planning/STATE.md", "kind": "project-state"},
                 index["governance"]["authorities"],
             )
-            governance = (target / "CLAUDE.md").read_text(encoding="utf-8")
-            self.assertIn("routing and continuity layer", governance)
+            instructions = (target / INSTRUCTIONS).read_text(encoding="utf-8")
+            self.assertIn("routing and continuity layer", instructions)
+            self.assertNotIn("routing and continuity layer", (target / "CLAUDE.md").read_text(encoding="utf-8"))
 
     def test_new_install_creates_governance_directly_without_init(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -100,7 +154,16 @@ class BootstrapTests(unittest.TestCase):
             governance = (target / "CLAUDE.md").read_text(encoding="utf-8")
             self.assertIn("ctx404:governance:start", governance)
             self.assertEqual(governance.count("ctx404:governance:start"), 1)
-            self.assertIn("Project definition workspace", governance)
+            self.assertIn("@.claude/ctx404-instructions.md", governance)
+            self.assertIn("@.claude/context/project-definition.md", governance)
+            # The protocol body must no longer sit in the user's own file.
+            self.assertNotIn("Start every session", governance)
+            self.assertNotIn("Route work by cost", governance)
+            self.assertLess(len(governance), 800, "CTX404 stub grew back into the user's CLAUDE.md")
+
+            self.assertIn("Start every session", (target / INSTRUCTIONS).read_text(encoding="utf-8"))
+            self.assertIn("Definition workspace", (target / DEFINITION).read_text(encoding="utf-8"))
+            self.assertIn('paths:', (target / CONTEXT_RULE).read_text(encoding="utf-8"))
 
             helper = target / ".claude" / "scripts" / "context_tool.py"
             doctor = run_python(helper, "doctor", cwd=target)
@@ -146,7 +209,12 @@ class BootstrapTests(unittest.TestCase):
             self.assertEqual(merged_guidance.count("ctx404:governance:start"), 1)
 
             settings = json.loads(settings_path.read_text(encoding="utf-8"))
-            self.assertEqual(settings["permissions"], {"allow": ["Read"]})
+            # The user's own rules survive; CTX404 only appends an allow for its helper.
+            self.assertEqual(settings["permissions"]["allow"][0], "Read")
+            self.assertIn(
+                "Bash(python .claude/scripts/context_tool.py:*)", settings["permissions"]["allow"]
+            )
+            self.assertNotIn("deny", settings["permissions"])
             self.assertEqual(settings["hooks"]["PostToolUse"], [existing_hook])
             self.assertIn("SessionStart", settings["hooks"])
             self.assertIn("PreToolUse", settings["hooks"])
@@ -198,15 +266,8 @@ class BootstrapTests(unittest.TestCase):
             installed = run_python(BOOTSTRAP, "install", "--target", target)
             self.assertEqual(installed.returncode, 0, installed.stderr + installed.stdout)
 
-            index_path = target / ".claude/context/index.json"
-            index = json.loads(index_path.read_text(encoding="utf-8"))
-            index["ctx404Version"] = "0.2.0-beta.1"
-            index_path.write_text(json.dumps(index, indent=2) + "\n", encoding="utf-8")
+            downgrade_install(target, "0.2.0-beta.1", "pending definition", drop_governance=False)
             claude_path = target / "CLAUDE.md"
-            claude = claude_path.read_text(encoding="utf-8").replace(
-                'version="0.3.0-beta.1"', 'version="0.2.0-beta.1"', 1
-            )
-            claude_path.write_text(claude, encoding="utf-8")
             before = claude_path.read_text(encoding="utf-8")
 
             second_prepare = run_python(BOOTSTRAP, "prepare", "--target", target)
@@ -217,7 +278,7 @@ class BootstrapTests(unittest.TestCase):
             self.assertTrue(payload["alreadyInstalled"])
             self.assertTrue(payload["upgradeAvailable"])
             self.assertEqual(payload["installedVersion"], "0.2.0-beta.1")
-            self.assertEqual(payload["skillVersion"], "0.3.0-beta.1")
+            self.assertEqual(payload["skillVersion"], "0.4.0-beta.1")
             self.assertEqual(claude_path.read_text(encoding="utf-8"), before)
 
     def test_reviewed_upgrade_migrates_v02_without_losing_project_context(self) -> None:
@@ -229,35 +290,22 @@ class BootstrapTests(unittest.TestCase):
             self.assertEqual(installed.returncode, 0, installed.stderr + installed.stdout)
 
             index_path = target / ".claude/context/index.json"
-            index = json.loads(index_path.read_text(encoding="utf-8"))
-            index["ctx404Version"] = "0.2.0-beta.1"
-            index.pop("governance", None)
-            index_path.write_text(json.dumps(index, indent=2) + "\n", encoding="utf-8")
-
             claude_path = target / "CLAUDE.md"
-            claude = claude_path.read_text(encoding="utf-8")
-            current_policy = (
-                "Claude Code auto memory is disabled for this project. `.claude/context/` is the portable, "
-                "Git-versioned continuity system.\n\n"
-                "`.claude/context/` is the primary durable project-context authority. Any prior context or planning "
-                "system may be migrated or retired only through explicit user-approved work; installation itself "
-                "does not delete or rewrite it."
+            downgrade_install(
+                target, "0.2.0-beta.1", "preserve this custom definition", drop_governance=True
             )
-            legacy_policy = (
-                "Claude Code auto memory is disabled for this project. `.claude/context/` is the portable, "
-                "Git-versioned memory system and the only durable project-context authority."
-            )
-            claude = claude.replace('version="0.3.0-beta.1"', 'version="0.2.0-beta.1"', 1)
-            claude = claude.replace(current_policy, legacy_policy, 1)
-            claude = claude.replace("Purpose: pending definition", "Purpose: preserve this custom definition", 1)
-            claude_path.write_text(claude, encoding="utf-8")
             current_before = (target / ".claude/context/current.json").read_text(encoding="utf-8")
 
             plan = run_python(
                 BOOTSTRAP, "upgrade-plan", "--target", target, "--authority-mode", "exclusive"
             )
             self.assertEqual(plan.returncode, 0, plan.stderr + plan.stdout)
-            self.assertTrue(json.loads(plan.stdout)["upgradeRequired"])
+            planned = json.loads(plan.stdout)
+            self.assertTrue(planned["upgradeRequired"])
+            self.assertEqual(
+                planned["hops"], ["0.2.0-beta.1 -> 0.3.0-beta.1", "0.3.0-beta.1 -> 0.4.0-beta.1"]
+            )
+
             applied = run_python(
                 BOOTSTRAP, "upgrade-apply", "--target", target, "--authority-mode", "exclusive"
             )
@@ -265,16 +313,209 @@ class BootstrapTests(unittest.TestCase):
             payload = json.loads(applied.stdout)
             self.assertTrue(payload["applied"])
             self.assertTrue(payload["validation"]["ok"])
+            self.assertEqual(payload["warnings"], [])
             self.assertEqual(
                 (target / ".claude/context/current.json").read_text(encoding="utf-8"), current_before
             )
+
             migrated_claude = claude_path.read_text(encoding="utf-8")
-            self.assertIn("Purpose: preserve this custom definition", migrated_claude)
-            self.assertIn('version="0.3.0-beta.1"', migrated_claude)
+            # The inline block must be gone and replaced by the stub.
+            self.assertNotIn("Start every session", migrated_claude)
+            self.assertNotIn("Context boundaries", migrated_claude)
+            self.assertEqual(migrated_claude.count("ctx404:governance:start"), 1)
+            self.assertIn('version="0.4.0-beta.1"', migrated_claude)
+            self.assertIn("@.claude/ctx404-instructions.md", migrated_claude)
+            self.assertIn("Project-specific guidance will evolve", migrated_claude)
+
+            # The user's edited definition must survive the move, not be reset to the template.
+            definition = (target / DEFINITION).read_text(encoding="utf-8")
+            self.assertIn("Purpose: preserve this custom definition", definition)
+            self.assertIn(f"Project name: `{target.name}`", definition)
+            self.assertIn("Start every session", (target / INSTRUCTIONS).read_text(encoding="utf-8"))
+            self.assertTrue((target / CONTEXT_RULE).is_file())
+
             migrated_index = json.loads(index_path.read_text(encoding="utf-8"))
             self.assertEqual(migrated_index["governance"]["mode"], "exclusive")
+            self.assertEqual(migrated_index["ctx404Version"], "0.4.0-beta.1")
             history = (target / ".claude/context/history.jsonl").read_text(encoding="utf-8")
             self.assertIn('"type": "upgrade"', history)
+
+    def test_reviewed_upgrade_moves_v03_block_out_of_claude_md(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory)
+            run_python(BOOTSTRAP, "prepare", "--target", target)
+            installed = run_python(BOOTSTRAP, "install", "--target", target)
+            self.assertEqual(installed.returncode, 0, installed.stderr + installed.stdout)
+
+            downgrade_install(target, "0.3.0-beta.1", "keep my scope", drop_governance=False)
+            claude_path = target / "CLAUDE.md"
+            self.assertIn("Route work by cost", claude_path.read_text(encoding="utf-8"))
+
+            plan = run_python(BOOTSTRAP, "upgrade-plan", "--target", target)
+            self.assertEqual(plan.returncode, 0, plan.stderr + plan.stdout)
+            self.assertEqual(json.loads(plan.stdout)["hops"], ["0.3.0-beta.1 -> 0.4.0-beta.1"])
+
+            applied = run_python(BOOTSTRAP, "upgrade-apply", "--target", target)
+            self.assertEqual(applied.returncode, 0, applied.stderr + applied.stdout)
+            payload = json.loads(applied.stdout)
+            self.assertTrue(payload["applied"])
+            self.assertTrue(payload["validation"]["ok"])
+            self.assertEqual(payload["warnings"], [])
+            self.assertIn(INSTRUCTIONS, payload["created"])
+            self.assertIn(CONTEXT_RULE, payload["created"])
+
+            migrated = claude_path.read_text(encoding="utf-8")
+            self.assertNotIn("Route work by cost", migrated)
+            self.assertNotIn("Maintain context after relevant work", migrated)
+            self.assertLess(len(migrated), 800)
+            self.assertIn("keep my scope", (target / DEFINITION).read_text(encoding="utf-8"))
+
+    def test_upgrade_refreshes_the_managed_helper_only_when_it_changed(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory)
+            run_python(BOOTSTRAP, "prepare", "--target", target)
+            self.assertEqual(run_python(BOOTSTRAP, "install", "--target", target).returncode, 0)
+            downgrade_install(target, "0.3.0-beta.1", "keep my scope", drop_governance=False)
+
+            helper = target / ".claude/scripts/context_tool.py"
+            # A 0.3.0 project carries the old helper, which has no topic-write. The rule the
+            # upgrade installs tells Claude to use it, so the migration must ship the new helper.
+            helper.write_text(
+                helper.read_text(encoding="utf-8").replace('sub.add_parser("topic-write")', 'sub.add_parser("stale")'),
+                encoding="utf-8",
+            )
+            # Line endings alone must not count as a change.
+            hook = target / ".claude/hooks/session_context.py"
+            hook.write_bytes(hook.read_bytes().replace(b"\n", b"\r\n"))
+
+            applied = run_python(BOOTSTRAP, "upgrade-apply", "--target", target)
+            self.assertEqual(applied.returncode, 0, applied.stderr + applied.stdout)
+            payload = json.loads(applied.stdout)
+            self.assertIn(".claude/scripts/context_tool.py", payload["refreshed"])
+            self.assertNotIn(".claude/hooks/session_context.py", payload["refreshed"])
+            self.assertIn("topic-write", helper.read_text(encoding="utf-8"))
+
+            # A migrated project must also gain the allow rule the new protocol depends on.
+            settings = json.loads((target / ".claude/settings.json").read_text(encoding="utf-8"))
+            self.assertIn(
+                "Bash(python .claude/scripts/context_tool.py:*)", settings["permissions"]["allow"]
+            )
+
+            # The refreshed doctor is the one that knows about the new files.
+            doctor = run_python(helper, "doctor", cwd=target)
+            self.assertEqual(doctor.returncode, 0, doctor.stderr + doctor.stdout)
+            self.assertTrue(json.loads(doctor.stdout)["ok"])
+
+    def test_always_loaded_core_stays_within_budget(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory)
+            run_python(BOOTSTRAP, "prepare", "--target", target)
+            self.assertEqual(run_python(BOOTSTRAP, "install", "--target", target).returncode, 0)
+
+            # Claude Code strips block-level HTML comments before loading, so they cost nothing.
+            always_loaded = sum(
+                len(re.sub(r"<!--.*?-->", "", (target / relative).read_text(encoding="utf-8"), flags=re.DOTALL).strip())
+                for relative in ("CLAUDE.md", INSTRUCTIONS, DEFINITION)
+            )
+            self.assertLess(
+                always_loaded,
+                CORE_BUDGET_CHARS,
+                "Always-loaded CTX404 footprint regressed; move detail into a path-scoped rule",
+            )
+            # The path-scoped rule must stay out of the always-loaded set.
+            self.assertNotIn(
+                "context_tool.py complete",
+                (target / INSTRUCTIONS).read_text(encoding="utf-8"),
+            )
+
+    def test_topic_write_creates_updates_and_rejects_bad_input(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory)
+            run_python(BOOTSTRAP, "prepare", "--target", target)
+            self.assertEqual(run_python(BOOTSTRAP, "install", "--target", target).returncode, 0)
+            helper = target / ".claude" / "scripts" / "context_tool.py"
+
+            def write_topic(body: str, *args: str) -> subprocess.CompletedProcess[str]:
+                return subprocess.run(
+                    [sys.executable, str(helper), "topic-write", "--body-file", "-", *args],
+                    cwd=target,
+                    input=body,
+                    text=True,
+                    capture_output=True,
+                    check=False,
+                )
+
+            created = write_topic(
+                "# Decision\n\nRegistry chosen.\n",
+                "--id", "calculator-core",
+                "--summary", "Core uses a pluggable operation registry",
+                "--keyword", "architecture",
+                "--keyword", "registry",
+            )
+            self.assertEqual(created.returncode, 0, created.stderr + created.stdout)
+            payload = json.loads(created.stdout)
+            self.assertTrue(payload["created"])
+            self.assertEqual(payload["topicSync"]["topicCount"], 1)
+
+            topic = (target / ".claude/context/topics/calculator-core.md").read_text(encoding="utf-8")
+            self.assertIn('keywords: ["architecture", "registry"]', topic)
+            self.assertIn("revision: 1", topic)
+            self.assertIn("Registry chosen.", topic)
+
+            updated = write_topic(
+                "# Decision\n\nRevised.\n",
+                "--id", "calculator-core",
+                "--summary", "Core uses a pluggable operation registry",
+                "--keyword", "architecture",
+            )
+            self.assertEqual(updated.returncode, 0, updated.stderr + updated.stdout)
+            self.assertFalse(json.loads(updated.stdout)["created"])
+            revised = (target / ".claude/context/topics/calculator-core.md").read_text(encoding="utf-8")
+            self.assertIn("revision: 2", revised)
+            self.assertIn(topic.split("created-at: ")[1].splitlines()[0], revised)
+
+            empty = write_topic("   \n", "--id", "blank", "--summary", "s", "--keyword", "k")
+            self.assertNotEqual(empty.returncode, 0)
+            self.assertIn("body must not be empty", json.loads(empty.stdout)["error"])
+
+            bad_id = write_topic("body", "--id", "Bad_Id", "--summary", "s", "--keyword", "k")
+            self.assertNotEqual(bad_id.returncode, 0)
+            self.assertFalse((target / ".claude/context/topics/Bad_Id.md").exists())
+
+            # A topic written through the helper must satisfy the same doctor the protocol requires.
+            doctor = run_python(helper, "doctor", cwd=target)
+            self.assertEqual(doctor.returncode, 0, doctor.stderr + doctor.stdout)
+            self.assertTrue(json.loads(doctor.stdout)["ok"])
+
+    def test_doctor_detects_a_broken_import(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory)
+            run_python(BOOTSTRAP, "prepare", "--target", target)
+            self.assertEqual(run_python(BOOTSTRAP, "install", "--target", target).returncode, 0)
+            helper = target / ".claude" / "scripts" / "context_tool.py"
+
+            claude_path = target / "CLAUDE.md"
+            claude_path.write_text(
+                claude_path.read_text(encoding="utf-8").replace("@.claude/ctx404-instructions.md", ""),
+                encoding="utf-8",
+            )
+            broken = run_python(helper, "doctor", cwd=target)
+            self.assertNotEqual(broken.returncode, 0)
+            self.assertIn("import", json.loads(broken.stdout)["issues"][0])
+
+    def test_install_refuses_to_overwrite_an_existing_rule_file(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory)
+            (target / "app.py").write_text("print('keep')\n", encoding="utf-8")
+            conflict = target / CONTEXT_RULE
+            conflict.parent.mkdir(parents=True)
+            conflict.write_text("my own rule\n", encoding="utf-8")
+
+            run_python(BOOTSTRAP, "prepare", "--target", target)
+            installed = run_python(BOOTSTRAP, "install", "--target", target)
+            self.assertNotEqual(installed.returncode, 0)
+            self.assertEqual(conflict.read_text(encoding="utf-8"), "my own rule\n")
+            self.assertFalse((target / "CLAUDE.md").exists())
 
     def test_install_requires_prepare_state(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

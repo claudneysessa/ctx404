@@ -114,9 +114,26 @@ No modo índice, `.claude/context/index.json` registra os caminhos detectados em
 
 Atualizar a skill global **não** atualiza repositórios que já contêm o CTX404. O protocolo plantado é intencionalmente autônomo. Executar `/ctx404` novamente valida a versão instalada no projeto e informa se existe uma skill mais nova, mas nunca sobrepõe os arquivos.
 
-Use `/ctx404 upgrade` explicitamente para solicitar uma migração revisada. Primeiro o CTX404 mostra as versões instalada e alvo, as mudanças exatas, o estado preservado e qualquer decisão de autoridade. Somente após aprovação ele cria um backup local, aplica uma migração conhecida entre versões, executa o doctor de contexto e restaura o backup automaticamente se houver falha. O primeiro caminho suportado é `v0.2.0-beta.1 → v0.3.0-beta.1`.
+Use `/ctx404 upgrade` explicitamente para solicitar uma migração revisada. Primeiro o CTX404 mostra as versões instalada e alvo, as mudanças exatas, o estado preservado e qualquer decisão de autoridade. Somente após aprovação ele cria um backup local, aplica uma migração conhecida entre versões, executa o doctor de contexto e restaura o backup automaticamente se houver falha. As migrações são encadeadas, então um projeto na beta mais antiga chega à versão atual numa única execução revisada: `v0.2.0-beta.1 → v0.3.0-beta.1 → v0.4.0-beta.1`. O plano informa cada salto, os arquivos criados e os arquivos gerenciados que são atualizados.
 
 ## Estrutura criada
+
+### Seu CLAUDE.md continua seu
+
+O CTX404 não escreve o protocolo dentro do `CLAUDE.md`. Ele acrescenta um stub marcado de dois imports no topo e não toca no resto do arquivo:
+
+```text
+<!-- ctx404:governance:start version="0.4.0-beta.1" schema="2" -->
+@.claude/ctx404-instructions.md
+@.claude/context/project-definition.md
+<!-- ctx404:governance:end -->
+```
+
+- `.claude/ctx404-instructions.md` é o núcleo do protocolo, sempre carregado. É gerenciado: uma migração revisada o substitui inteiro, então atualizar nunca depende de você não ter mexido nele.
+- `.claude/context/project-definition.md` guarda identidade e escopo do projeto. É seu; o CTX404 nunca o reescreve.
+- `.claude/rules/ctx404-context.md` guarda o procedimento de escrita de contexto. O Claude Code carrega esse arquivo sozinho, só quando `.claude/context/` é tocado, então ele não custa nada em sessões que não gravam contexto.
+
+Numa instalação medida, a pegada do CTX404 no `CLAUDE.md` fica abaixo de 600 caracteres, e o protocolo sempre carregado é cerca de metade do que custava um bloco embutido único. Ao migrar um projeto anterior à 0.4.0, o bloco antigo é removido e o stub fica no lugar, levando a definição de projeto que você editou para o arquivo novo.
 
 ```text
 novo-projeto/
@@ -130,11 +147,14 @@ novo-projeto/
 │   │   └── guard_agent_bash.py
 │   ├── scripts/context_tool.py
 │   ├── settings.json
+│   ├── ctx404-instructions.md
+│   ├── rules/ctx404-context.md
 │   └── context/
 │       ├── index.json
 │       ├── current.json
 │       ├── schema.json
 │       ├── history.jsonl
+│       ├── project-definition.md
 │       ├── templates/topic.md
 │       └── topics/
 ├── CLAUDE.md

@@ -1,5 +1,12 @@
 {
   "autoMemoryEnabled": false,
+  "permissions": {
+    "allow": [
+      "Bash(python .claude/scripts/context_tool.py:*)",
+      "Bash(python3 .claude/scripts/context_tool.py:*)",
+      "Bash(py .claude/scripts/context_tool.py:*)"
+    ]
+  },
   "hooks": {
     "SessionStart": [
       {

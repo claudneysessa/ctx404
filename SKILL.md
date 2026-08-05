@@ -40,10 +40,11 @@ Detect whether the target is new or already contains a project. Bootstrap new re
    If `alreadyInstalled` is true, report `installedVersion`, `skillVersion`, and `upgradeAvailable`. Never present a global skill update as a project upgrade and never overlay project protocol files.
 10. Tell the user that CTX404 has finished and the repository is now self-maintaining.
 11. Explain that project agents written to `.claude/agents/` become available after Claude Code restarts because file-defined agents load at session start.
-12. State that native `/init` and recap were intentionally not run. Recommend them only as optional manual orientation choices after installation. Require user review before saving either result as durable context.
-13. For `new`, take ownership of the repository in the same turn and refine the `Project definition workspace` from explicit user intent and verified evidence. Synchronize `README.md` and `.claude/context/index.json`. If the purpose is unavailable, ask only one minimal question instead of inventing it.
-14. For `adopt`, state that no retrospective analysis was performed and durable context starts now. If authority mode is `index`, name the preserved authority paths and explain that CTX404 points to them instead of duplicating their content.
-15. Stop using CTX404 after this handoff; subsequent maintenance belongs to the repository protocol.
+12. Tell the user to accept the workspace trust dialog once in this project. `.claude/settings.json` carries an allow rule for the context helper, and Claude Code ignores `permissions.allow` from project settings until the workspace is trusted; without it every helper call prompts. Hooks are unaffected.
+13. State that native `/init` and recap were intentionally not run. Recommend them only as optional manual orientation choices after installation. Require user review before saving either result as durable context.
+14. For `new`, take ownership of the repository in the same turn and refine `.claude/context/project-definition.md` from explicit user intent and verified evidence. Define only personas that materially help the project, mark uncertain statements as assumptions, and never invent missing facts. Synchronize `README.md` and `.claude/context/index.json`. If the purpose is unavailable, ask only one minimal question instead of inventing it.
+15. For `adopt`, state that no retrospective analysis was performed and durable context starts now. If authority mode is `index`, name the preserved authority paths and explain that CTX404 points to them instead of duplicating their content.
+16. Stop using CTX404 after this handoff; subsequent maintenance belongs to the repository protocol.
 
 ## Reviewed upgrade
 
@@ -70,11 +71,13 @@ Detect whether the target is new or already contains a project. Bootstrap new re
 - Preserve every pre-existing project file. Do not rewrite README.md, reorganize code, infer project history, or scan the repository merely to populate context during adoption.
 - Treat existing planning, memory, state and decision systems as possible authorities. Never silently declare CTX404 their replacement.
 - Default recommendations to `index`. Require an explicit user choice before `exclusive`, and never delete or retire an existing system during installation.
-- Merge the managed governance block into an existing `CLAUDE.md` and merge CTX404 hooks into an existing `.claude/settings.json`; preserve unrelated content and settings.
+- Keep the CTX404 footprint in `CLAUDE.md` to the marked import stub. The protocol lives in `.claude/ctx404-instructions.md` and `.claude/rules/ctx404-context.md`; project identity and scope live in `.claude/context/project-definition.md`. Merge CTX404 hooks into an existing `.claude/settings.json`; preserve unrelated content and settings.
+- Treat `.claude/ctx404-instructions.md` and `.claude/rules/ctx404-context.md` as managed: a reviewed upgrade replaces them. Never rewrite `.claude/context/project-definition.md`, which belongs to the project.
 - Refuse managed-path collisions instead of overwriting custom agents, hooks, scripts, or context files.
 - Treat project protocol upgrades as a separate reviewed migration. Reinstalling the global skill or rerunning `/ctx404` must not silently overlay an initialized repository.
 - Never delete, overwrite, publish, commit, add a remote, or push.
-- Preserve any existing `CLAUDE.md`; install the managed governance block above it.
+- Preserve any existing `CLAUDE.md`; install the import stub above it and leave everything else untouched.
+- On `upgrade-apply` from a pre-0.4.0 project, the inline governance block is removed from `CLAUDE.md` and replaced by the stub. Report `hops`, `created` and any `warnings` so the user sees exactly what moved.
 - Never invoke native `/init` or generate a recap during CTX404 installation. Both are optional and user-controlled after the deterministic installation is complete.
 - Never treat optional `/init` or recap output as project evidence until the user reviews it; refine project context from explicit intent and verified files.
 - Do not enumerate or read the installed CTX404 directory. The workflow paths are defined here; invoke the bundled scripts directly.

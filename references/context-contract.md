@@ -2,7 +2,10 @@
 
 The installed repository separates five responsibilities:
 
-- `CLAUDE.md`: permanent operating protocol.
+- `CLAUDE.md`: the project's own instruction file. CTX404 owns only a marked stub of two imports at its top.
+- `.claude/ctx404-instructions.md`: always-loaded core protocol. Managed; a reviewed upgrade replaces it.
+- `.claude/rules/ctx404-context.md`: context-writing detail, loaded by Claude Code only when `.claude/context/` is touched. Managed.
+- `.claude/context/project-definition.md`: project identity and scope. Project-owned; never rewritten by CTX404.
 - `.claude/context/index.json`: compact map of available context.
 - `.claude/context/current.json`: current state and next step.
 - `.claude/context/topics/`: details loaded only when relevant.

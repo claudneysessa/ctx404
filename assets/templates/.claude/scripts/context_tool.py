@@ -263,6 +263,9 @@ def doctor(root: Path) -> dict[str, Any]:
     warnings = list(check.get("warnings", []))
     index = load_json(context_root(root) / "index.json") if not issues else {}
     claude_path = root / "CLAUDE.md"
+    instructions_path = root / ".claude" / "ctx404-instructions.md"
+    definition_path = context_root(root) / "project-definition.md"
+    rule_path = root / ".claude" / "rules" / "ctx404-context.md"
     if not claude_path.is_file():
         issues.append("CLAUDE.md is missing")
     else:
@@ -272,6 +275,24 @@ def doctor(root: Path) -> dict[str, Any]:
             issues.append("CTX404 governance markers are missing or duplicated")
         elif starts[0][0] != index.get("ctx404Version"):
             issues.append("CLAUDE.md governance version differs from index.json")
+        else:
+            # The stub is inert unless both imports survive; a broken import fails silently otherwise.
+            for target in ("@.claude/ctx404-instructions.md", "@.claude/context/project-definition.md"):
+                if target not in content:
+                    issues.append(f"CLAUDE.md is missing the {target} import")
+    if not instructions_path.is_file():
+        issues.append(".claude/ctx404-instructions.md is missing")
+    else:
+        instructions = instructions_path.read_text(encoding="utf-8")
+        marker = re.search(r'<!-- ctx404:instructions:start version="([^"]+)"', instructions)
+        if not marker:
+            issues.append(".claude/ctx404-instructions.md has no CTX404 version marker")
+        elif marker.group(1) != index.get("ctx404Version"):
+            issues.append(".claude/ctx404-instructions.md version differs from index.json")
+    if not definition_path.is_file():
+        issues.append(".claude/context/project-definition.md is missing")
+    if not rule_path.is_file():
+        issues.append(".claude/rules/ctx404-context.md is missing")
     indexed = {item.get("id"): item for item in index.get("topics", []) if isinstance(item, dict)}
     discovered: set[str] = set()
     for path in topic_files(root):
@@ -344,6 +365,63 @@ def history(root: Path, limit: int, event_type: str | None) -> dict[str, Any]:
     if event_type:
         events = [event for event in events if event.get("type") == event_type]
     return {"ok": True, "events": list(reversed(events))[:limit]}
+
+
+def topic_write(
+    root: Path,
+    topic_id: str,
+    summary: str,
+    keywords: list[str],
+    status_value: str,
+    body: str,
+) -> dict[str, Any]:
+    """Write a topic body deterministically.
+
+    Claude decides the content; this builds the frontmatter and syncs the index. Writing through
+    the helper also keeps topic files reachable in non-interactive sessions, where the built-in
+    file tools are blocked from `.claude/` by the sensitive-path gate.
+    """
+    body = body.strip()
+    if not body:
+        raise ValueError("body must not be empty")
+
+    topics_dir = context_root(root) / "topics"
+    path = topics_dir / f"{topic_id}.md"
+    existed = path.is_file()
+    metadata: dict[str, Any] = {
+        "id": topic_id,
+        "type": "context-topic",
+        "schema-version": 1,
+        "revision": 1,
+        "created-at": None,
+        "updated-at": None,
+        "status": status_value,
+        "summary": summary.strip(),
+        "keywords": keywords,
+    }
+    if existed:
+        # Preserve provenance; sync_topics owns the revision bump and timestamps.
+        previous, _ = parse_topic(path)
+        metadata["created-at"] = previous.get("created-at")
+        metadata["revision"] = previous.get("revision", 1)
+
+    errors = topic_errors(metadata)
+    if errors:
+        raise ValueError("; ".join(errors))
+
+    topics_dir.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_topic(metadata, body + "\n"), encoding="utf-8", newline="\n")
+    return {
+        "ok": True,
+        "id": topic_id,
+        "path": path.relative_to(root).as_posix(),
+        "created": not existed,
+        "topicSync": sync_topics(root),
+    }
+
+
+def read_body(source: str) -> str:
+    return sys.stdin.read() if source == "-" else Path(source).read_text(encoding="utf-8")
 
 
 def complete(
@@ -431,6 +509,13 @@ def main() -> int:
     history_command.add_argument("--limit", type=int, default=10)
     history_command.add_argument("--type")
     history_command.add_argument("--root")
+    topic_command = sub.add_parser("topic-write")
+    topic_command.add_argument("--id", required=True)
+    topic_command.add_argument("--summary", required=True)
+    topic_command.add_argument("--keyword", action="append", default=[])
+    topic_command.add_argument("--status", default="active")
+    topic_command.add_argument("--body-file", default="-", help="Body source; '-' reads stdin")
+    topic_command.add_argument("--root")
     complete_command = sub.add_parser("complete")
     complete_command.add_argument("--summary", required=True)
     complete_command.add_argument("--next-step", required=True)
@@ -456,6 +541,15 @@ def main() -> int:
             payload = list_topics(root)
         elif args.command == "history":
             payload = history(root, max(1, min(args.limit, 100)), args.type)
+        elif args.command == "topic-write":
+            payload = topic_write(
+                root,
+                args.id,
+                args.summary,
+                args.keyword,
+                args.status,
+                read_body(args.body_file),
+            )
         elif args.command == "complete":
             payload = complete(
                 root,

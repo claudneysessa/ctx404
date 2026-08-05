@@ -8,6 +8,30 @@ All notable CTX404 changes are documented here. The project follows Semantic Ver
 
 - `Why context lives in the repository` section in the governance template: durable context is versioned in the repository because the same work continues on more than one machine, and Git is what synchronizes them. Includes the portability test — does the mechanism reach the other machines through `git pull`? — and an explicit instruction not to fork the rule per repository.
 
+## [0.4.0-beta.1] - 2026-08-04
+
+### Changed
+
+- CTX404 no longer writes its protocol into `CLAUDE.md`. The file now receives a marked stub of two `@` imports; a measured install drops the CTX404 footprint there from about 7,900 characters to under 600.
+- The protocol moved to `.claude/ctx404-instructions.md`, a fully managed file that a reviewed upgrade replaces outright. Upgrades no longer depend on the user having left the inline text untouched.
+- Project identity and the definition workspace moved to `.claude/context/project-definition.md`, which is project-owned and never rewritten by CTX404.
+- Governance marker schema is now `2`.
+
+### Added
+
+- `.claude/rules/ctx404-context.md`, a path-scoped rule holding the `complete` procedure, topic format and context boundaries. Claude Code loads it only when `.claude/context/` is touched, so the always-loaded protocol drops from roughly 1,900 to about 990 tokens per session.
+- Chained reviewed migrations. `upgrade-plan` and `upgrade-apply` report `hops` and walk `0.2.0-beta.1 → 0.3.0-beta.1 → 0.4.0-beta.1` in one reviewed run, so projects on the oldest beta are no longer stranded.
+- `upgrade-apply` removes the pre-0.4.0 inline block from `CLAUDE.md`, carries the edited project definition into the new file, and reports `created` and `warnings`.
+- Doctor verifies both imports in `CLAUDE.md`, the managed instructions file and its version, the project definition and the path-scoped rule. A silently broken import is now an error instead of an invisible loss of protocol.
+- Installation refuses to overwrite an existing `.claude/rules/ctx404-context.md`.
+- `.claude/settings.json` now ships an allow rule scoped to the context helper, merged into an existing file without touching the user's own rules, and added to pre-0.4.0 projects by `upgrade-apply`. Claude Code ignores `permissions.allow` from project settings until the workspace trust dialog is accepted once, so `SKILL.md` now tells the user to do that after installation; hooks are unaffected.
+- `upgrade-apply` refreshes managed implementation files — the context helper, hooks, agents, topic template and schema — and reports them as `refreshed`. Without this, a migrated project kept the old helper while the newly installed rule told Claude to call a subcommand it did not have, and the old doctor silently skipped the new checks. Files differing only in line endings are left alone.
+- `context_tool.py topic-write` writes topic bodies deterministically: Claude supplies the body on stdin, the helper builds the frontmatter, preserves provenance on update and syncs the index. Topic writing no longer depends on a file-editing tool, which Claude Code blocks inside `.claude/` as a sensitive path — previously a non-interactive session lost topic files silently while `complete` still reported success.
+
+### Removed
+
+- Installation-time handoff guidance left the always-loaded protocol; it lives in `SKILL.md`, which is already loaded while `/ctx404` runs.
+
 ## [0.3.0-beta.1] - 2026-08-02
 
 ### Added
@@ -61,3 +85,4 @@ All notable CTX404 changes are documented here. The project follows Semantic Ver
 [0.1.0-beta.1]: https://github.com/claudneysessa/ctx404/releases/tag/v0.1.0-beta.1
 [0.2.0-beta.1]: https://github.com/claudneysessa/ctx404/releases/tag/v0.2.0-beta.1
 [0.3.0-beta.1]: https://github.com/claudneysessa/ctx404/releases/tag/v0.3.0-beta.1
+[0.4.0-beta.1]: https://github.com/claudneysessa/ctx404/releases/tag/v0.4.0-beta.1
