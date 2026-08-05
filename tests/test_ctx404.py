@@ -114,6 +114,248 @@ class BootstrapTests(unittest.TestCase):
             self.assertFalse((target / ".git").exists())
             self.assertEqual(state.read_text(encoding="utf-8"), "# Existing state\n")
 
+    def test_prepare_gates_on_an_existing_claude_md_and_offers_the_rename(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory)
+            # The SPALLA shape: lowercase file, own governance, rules linking their own records.
+            (target / "checkpoint.md").write_text("# Checkpoint\n", encoding="utf-8")
+            (target / "changelog.md").write_text("# Changelog\n", encoding="utf-8")
+            (target / "roadmap.md").write_text("# Roadmap\n", encoding="utf-8")
+            (target / "claude.md").write_text(
+                "# Rules\n\n"
+                "Regra 1: registre em [`changelog.md`](changelog.md).\n"
+                "Regra 2: mantenha o [`checkpoint.md`](checkpoint.md) vivo.\n"
+                "Regra 3: tarefas em `roadmap.md`.\n"
+                "Veja tambem https://example.com/other.md e ../fora.md\n",
+                encoding="utf-8",
+            )
+
+            gated = run_python(BOOTSTRAP, "prepare", "--target", target)
+            self.assertEqual(gated.returncode, 0, gated.stderr + gated.stdout)
+            payload = json.loads(gated.stdout)
+            self.assertTrue(payload["claudeMdDecisionRequired"])
+            self.assertEqual(payload["claudeMd"]["path"], "claude.md")
+            self.assertTrue(payload["claudeMd"]["needsRename"])
+            self.assertEqual(
+                payload["claudeMd"]["linkedDocs"], ["changelog.md", "checkpoint.md", "roadmap.md"]
+            )
+            self.assertEqual(payload["recommended"], "rename")
+            # Nothing may happen before the user answers.
+            self.assertFalse((target / ".git").exists())
+
+            renamed = run_python(BOOTSTRAP, "prepare", "--target", target, "--claude-md", "rename")
+            self.assertEqual(renamed.returncode, 0, renamed.stderr + renamed.stdout)
+            after = json.loads(renamed.stdout)
+            self.assertTrue(after["authorityDecisionRequired"])
+            # The linked records become authorities, so the existing decision gate covers them.
+            paths = [item["path"] for item in after["detectedAuthorities"]]
+            self.assertEqual(paths, ["changelog.md", "checkpoint.md", "roadmap.md"])
+            self.assertEqual(after["recommended"], "index")
+            self.assertEqual(
+                sorted(p.name for p in target.iterdir() if p.suffix == ".md"),
+                ["CLAUDE.md", "changelog.md", "checkpoint.md", "roadmap.md"],
+            )
+
+    def test_prepare_does_not_regate_a_project_already_running_ctx404(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory)
+            run_python(BOOTSTRAP, "prepare", "--target", target)
+            self.assertEqual(run_python(BOOTSTRAP, "install", "--target", target).returncode, 0)
+
+            again = run_python(BOOTSTRAP, "prepare", "--target", target)
+            self.assertEqual(again.returncode, 0, again.stderr + again.stdout)
+            payload = json.loads(again.stdout)
+            self.assertNotIn("claudeMdDecisionRequired", payload)
+            self.assertIsNone(payload["claudeMd"])
+
+    def test_prepare_refuses_when_git_ignores_the_context(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory)
+            (target / "app.py").write_text("x\n", encoding="utf-8")
+            (target / ".gitignore").write_text(".claude/\n", encoding="utf-8")
+            subprocess.run(["git", "init", "-q"], cwd=target, check=True)
+
+            result = run_python(BOOTSTRAP, "prepare", "--target", target)
+            self.assertNotEqual(result.returncode, 0)
+            payload = json.loads(result.stdout)
+            self.assertFalse(payload["ok"])
+            self.assertEqual(payload["contextIgnored"]["pattern"], ".claude/")
+            self.assertEqual(payload["contextIgnored"]["source"], ".gitignore")
+            # `.claude/` cannot be negated, so the recipe has to switch to `.claude/*`.
+            self.assertEqual(payload["recipe"][0], ".claude/*")
+            self.assertIn("!.claude/context/", payload["recipe"])
+            self.assertIn("!.claude/settings.json", payload["recipe"])
+            self.assertFalse((target / ".claude").exists())
+
+            (target / ".gitignore").write_text(
+                "\n".join(payload["recipe"]) + "\n", encoding="utf-8"
+            )
+            fixed = run_python(BOOTSTRAP, "prepare", "--target", target)
+            self.assertEqual(fixed.returncode, 0, fixed.stderr + fixed.stdout)
+            self.assertEqual(run_python(BOOTSTRAP, "install", "--target", target).returncode, 0)
+            check = subprocess.run(
+                ["git", "check-ignore", "-q", ".claude/context/index.json"],
+                cwd=target,
+                check=False,
+            )
+            self.assertNotEqual(check.returncode, 0, "context must be versionable after the fix")
+
+    def test_prepare_refuses_a_non_utf8_claude_md_without_a_traceback(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory)
+            (target / "app.py").write_text("x\n", encoding="utf-8")
+            (target / "CLAUDE.md").write_bytes("# Regras\n\nconfiguração\n".encode("cp1252"))
+
+            result = run_python(BOOTSTRAP, "prepare", "--target", target, "--claude-md", "keep")
+            self.assertNotEqual(result.returncode, 0)
+            self.assertNotIn("Traceback", result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertFalse(payload["ok"])
+            self.assertIn("not valid UTF-8", payload["error"])
+            self.assertFalse((target / ".claude").exists())
+
+    def test_install_works_inside_a_git_worktree(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            main = Path(directory) / "main"
+            main.mkdir()
+            subprocess.run(["git", "init", "-q"], cwd=main, check=True)
+            (main / "a.txt").write_text("x\n", encoding="utf-8")
+            for command in (
+                ["git", "add", "-A"],
+                ["git", "-c", "user.email=a@b", "-c", "user.name=c", "commit", "-qm", "i"],
+                ["git", "worktree", "add", "-q", str(Path(directory) / "wt"), "-b", "feat"],
+            ):
+                subprocess.run(command, cwd=main, check=True)
+            worktree = Path(directory) / "wt"
+            # In a worktree `.git` is a file, so the Git directory must be resolved, not assumed.
+            self.assertTrue((worktree / ".git").is_file())
+
+            prepared = run_python(BOOTSTRAP, "prepare", "--target", worktree)
+            self.assertEqual(prepared.returncode, 0, prepared.stderr + prepared.stdout)
+            installed = run_python(BOOTSTRAP, "install", "--target", worktree)
+            self.assertEqual(installed.returncode, 0, installed.stderr + installed.stdout)
+            self.assertTrue(json.loads(installed.stdout)["validation"]["ok"])
+            subprocess.run(["git", "worktree", "remove", "--force", str(worktree)], cwd=main, check=False)
+
+    def test_doctor_warns_when_the_context_becomes_ignored_later(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory)
+            run_python(BOOTSTRAP, "prepare", "--target", target)
+            self.assertEqual(run_python(BOOTSTRAP, "install", "--target", target).returncode, 0)
+            helper = target / ".claude" / "scripts" / "context_tool.py"
+            self.assertEqual(json.loads(run_python(helper, "doctor", cwd=target).stdout)["warnings"], [])
+
+            # Someone adds the rule months after installation.
+            (target / ".gitignore").write_text(".claude/\n", encoding="utf-8")
+            later = json.loads(run_python(helper, "doctor", cwd=target).stdout)
+            self.assertTrue(any("Git ignores the context" in w for w in later["warnings"]))
+            # A warning, not a failure: it must not block ordinary work.
+            self.assertTrue(later["ok"])
+
+    def test_revert_undoes_an_adoption_and_restores_the_original_claude_md(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory)
+            guidance = "# My rules\n\nKeep Decimal arithmetic.\n"
+            (target / "app.py").write_text("print('keep')\n", encoding="utf-8")
+            (target / "claude.md").write_text(guidance, encoding="utf-8")
+            subprocess.run(["git", "init", "-q"], cwd=target, check=True)
+            subprocess.run(["git", "add", "-A"], cwd=target, check=True)
+            subprocess.run(
+                ["git", "-c", "user.email=a@b", "-c", "user.name=c", "commit", "-qm", "i"],
+                cwd=target, check=True,
+            )
+
+            run_python(BOOTSTRAP, "prepare", "--target", target, "--claude-md", "rename")
+            self.assertEqual(run_python(BOOTSTRAP, "install", "--target", target).returncode, 0)
+            self.assertTrue((target / ".claude").is_dir())
+
+            reverted = run_python(BOOTSTRAP, "revert", "--target", target)
+            self.assertEqual(reverted.returncode, 0, reverted.stderr + reverted.stdout)
+            payload = json.loads(reverted.stdout)
+            self.assertTrue(payload["ok"])
+            self.assertEqual(payload["revertedPhase"], "installed")
+
+            # The project must look untouched: no CTX404 files, original name and content back.
+            self.assertFalse((target / ".claude").exists())
+            self.assertEqual((target / "app.py").read_text(encoding="utf-8"), "print('keep')\n")
+            names = sorted(p.name for p in target.iterdir() if p.name != ".git")
+            self.assertEqual(names, ["app.py", "claude.md"])
+            self.assertEqual((target / "claude.md").read_text(encoding="utf-8"), guidance)
+            self.assertEqual(
+                subprocess.run(["git", "status", "--short"], cwd=target, capture_output=True, text=True).stdout,
+                "",
+            )
+
+    def test_revert_refuses_when_a_created_file_changed_afterwards(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory)
+            run_python(BOOTSTRAP, "prepare", "--target", target)
+            self.assertEqual(run_python(BOOTSTRAP, "install", "--target", target).returncode, 0)
+
+            definition = target / DEFINITION
+            definition.write_text(
+                definition.read_text(encoding="utf-8").replace(
+                    "Purpose: pending definition", "Purpose: real work happened here"
+                ),
+                encoding="utf-8",
+            )
+
+            refused = run_python(BOOTSTRAP, "revert", "--target", target)
+            self.assertNotEqual(refused.returncode, 0)
+            self.assertIn("changed after installation", json.loads(refused.stdout)["error"])
+            self.assertTrue(definition.is_file(), "nothing may be deleted when revert refuses")
+
+            forced = run_python(BOOTSTRAP, "revert", "--target", target, "--force")
+            self.assertEqual(forced.returncode, 0, forced.stderr + forced.stdout)
+            self.assertFalse((target / ".claude").exists())
+
+    def test_an_interrupted_install_is_detected_and_revertible(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory)
+            (target / "app.py").write_text("x\n", encoding="utf-8")
+            run_python(BOOTSTRAP, "prepare", "--target", target)
+            self.assertEqual(run_python(BOOTSTRAP, "install", "--target", target).returncode, 0)
+
+            # Reproduce what a killed process actually leaves: the receipt is written before any
+            # file lands, so `created` is empty and only `planned` describes the damage. An
+            # earlier version of this test flipped `phase` on a finished receipt, which tested a
+            # state that cannot occur and hid the fact that revert had nothing to undo.
+            git_dir = Path(
+                subprocess.run(
+                    ["git", "rev-parse", "--absolute-git-dir"],
+                    cwd=target, capture_output=True, text=True, check=True,
+                ).stdout.strip()
+            )
+            receipt_path = git_dir / "ctx404-receipt.json"
+            receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+            self.assertTrue(receipt["planned"], "the plan must be recorded before any write")
+            receipt["phase"] = "installing"
+            receipt["created"] = []
+            receipt["digests"] = {}
+            receipt_path.write_text(json.dumps(receipt), encoding="utf-8")
+
+            blocked = run_python(BOOTSTRAP, "prepare", "--target", target)
+            self.assertNotEqual(blocked.returncode, 0)
+            payload = json.loads(blocked.stdout)
+            self.assertIn("interrupted", payload["error"])
+            self.assertIn("revert", payload["next"])
+            self.assertTrue(payload["interruptedInstall"]["planned"])
+
+            # Installing over partial state must be refused too, not just prepare.
+            self.assertNotEqual(run_python(BOOTSTRAP, "install", "--target", target).returncode, 0)
+
+            recovered = run_python(BOOTSTRAP, "revert", "--target", target, "--force")
+            self.assertEqual(recovered.returncode, 0, recovered.stderr + recovered.stdout)
+            self.assertTrue(json.loads(recovered.stdout)["removed"], "revert must undo the plan")
+            self.assertFalse((target / ".claude").exists())
+            self.assertFalse((target / "CLAUDE.md").exists())
+            self.assertFalse(receipt_path.exists())
+            self.assertFalse(list(git_dir.glob("ctx404-*backup-*")))
+
+            # And the project installs cleanly afterwards.
+            self.assertEqual(run_python(BOOTSTRAP, "prepare", "--target", target).returncode, 0)
+            self.assertEqual(run_python(BOOTSTRAP, "install", "--target", target).returncode, 0)
+
     def test_index_mode_preserves_and_registers_existing_authority(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             target = Path(directory)
@@ -193,7 +435,12 @@ class BootstrapTests(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            prepared = run_python(BOOTSTRAP, "prepare", "--target", target)
+            gated = run_python(BOOTSTRAP, "prepare", "--target", target)
+            self.assertEqual(gated.returncode, 0, gated.stderr + gated.stdout)
+            self.assertTrue(json.loads(gated.stdout)["claudeMdDecisionRequired"])
+            self.assertFalse((target / ".git").exists())
+
+            prepared = run_python(BOOTSTRAP, "prepare", "--target", target, "--claude-md", "keep")
             self.assertEqual(prepared.returncode, 0, prepared.stderr + prepared.stdout)
             self.assertEqual(json.loads(prepared.stdout)["mode"], "adopt")
             installed = run_python(BOOTSTRAP, "install", "--target", target)

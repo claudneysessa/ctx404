@@ -7,6 +7,8 @@ import argparse
 import hashlib
 import json
 import re
+import shutil
+import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -257,10 +259,33 @@ def sync_topics(root: Path) -> dict[str, Any]:
     return {"ok": True, "topicCount": len(entries), "changedTopics": changed}
 
 
+def context_ignored(root: Path) -> str | None:
+    """Which rule, if any, makes Git ignore the context. It can appear long after install."""
+    git = shutil.which("git")
+    if not git:
+        return None
+    result = subprocess.run(
+        [git, "check-ignore", "-v", "--no-index", ".claude/context/index.json"],
+        cwd=root,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if result.returncode != 0 or not result.stdout.strip():
+        return None
+    return result.stdout.strip().splitlines()[0].split("\t")[0]
+
+
 def doctor(root: Path) -> dict[str, Any]:
     check = validation(root)
     issues = list(check.get("errors", []))
     warnings = list(check.get("warnings", []))
+    ignored = context_ignored(root)
+    if ignored:
+        warnings.append(
+            f"Git ignores the context ({ignored}). It will not reach other machines through "
+            "git pull; fix the ignore rule."
+        )
     index = load_json(context_root(root) / "index.json") if not issues else {}
     claude_path = root / "CLAUDE.md"
     instructions_path = root / ".claude" / "ctx404-instructions.md"

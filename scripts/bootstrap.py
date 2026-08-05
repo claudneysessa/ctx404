@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import shutil
@@ -20,6 +21,8 @@ CTX404_VERSION = "0.4.0-beta.1"
 GOVERNANCE_START = "<!-- ctx404:governance:start"
 GOVERNANCE_END = "<!-- ctx404:governance:end -->"
 PENDING_STATE = "ctx404-pending.json"
+CLAUDE_MD = "CLAUDE.md"
+RECEIPT_STATE = "ctx404-receipt.json"
 VERSION_020 = "0.2.0-beta.1"
 VERSION_030 = "0.3.0-beta.1"
 # Ordered reviewed migration path. Each hop is applied in sequence.
@@ -115,12 +118,116 @@ def detect_mode(target: Path) -> str:
     return "new" if not visible_entries(target) else "adopt"
 
 
+def git_dir(target: Path) -> Path | None:
+    """Real Git directory. In a worktree or submodule `.git` is a file, not a directory."""
+    git = shutil.which("git")
+    if not git:
+        return None
+    result = run([git, "rev-parse", "--absolute-git-dir"], target)
+    if result.returncode != 0:
+        return None
+    return Path(result.stdout.strip())
+
+
+def require_git_dir(target: Path) -> Path:
+    resolved = git_dir(target)
+    if not resolved:
+        raise BootstrapError("Git is not initialized. Run the prepare phase first.")
+    return resolved
+
+
+def read_utf8(path: Path) -> str:
+    """Read a project file, refusing non-UTF-8 with a usable message instead of a traceback."""
+    try:
+        return path.read_bytes().decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise BootstrapError(
+            f"{path.name} is not valid UTF-8 (byte 0x{path.read_bytes()[exc.start]:02x} at "
+            f"position {exc.start}). Convert it to UTF-8 and run again; CTX404 will not guess "
+            "an encoding for a file it has to rewrite."
+        ) from exc
+
+
+def context_ignored(target: Path) -> dict[str, object] | None:
+    """Whether Git would ignore the context directory, and which rule does it."""
+    git = shutil.which("git")
+    if not git:
+        return None
+    result = run([git, "check-ignore", "-v", "--no-index", ".claude/context/index.json"], target)
+    if result.returncode != 0 or not result.stdout.strip():
+        return None
+    described = result.stdout.strip().splitlines()[0].split("	")[0]
+    source, line, pattern = described.rsplit(":", 2)
+    return {"source": source, "line": int(line), "pattern": pattern}
+
+
+IGNORE_RECIPE = (
+    ".claude/*",
+    "!.claude/context/",
+    "!.claude/agents/",
+    "!.claude/hooks/",
+    "!.claude/scripts/",
+    "!.claude/rules/",
+    "!.claude/ctx404-instructions.md",
+    "!.claude/settings.json",
+)
+
+
+def find_claude_md(target: Path) -> str | None:
+    """Return the on-disk name of the project CLAUDE.md, whatever its casing."""
+    for item in sorted(target.iterdir(), key=lambda p: p.name):
+        if item.is_file() and item.name.lower() == CLAUDE_MD.lower():
+            return item.name
+    return None
+
+
+def linked_local_docs(target: Path, claude_name: str) -> list[str]:
+    """Markdown files the existing CLAUDE.md points at.
+
+    A project that already governs its own context names those files from its instructions.
+    That is a structural signal, unlike guessing at filenames.
+    """
+    text = read_utf8(target / claude_name)
+    found: list[str] = []
+    for match in re.finditer(r"\]\(([^)\s]+\.md)\)|`([^`\s]+\.md)`", text):
+        raw = match.group(1) or match.group(2)
+        if raw.startswith(("http://", "https://", "/", "#")) or ".." in raw:
+            continue
+        candidate = raw.lstrip("./")
+        if candidate.lower() == CLAUDE_MD.lower() or candidate in found:
+            continue
+        if (target / candidate).is_file():
+            found.append(candidate)
+    return sorted(found)
+
+
+def review_claude_md(target: Path) -> dict[str, object] | None:
+    name = find_claude_md(target)
+    if not name:
+        return None
+    text = read_utf8(target / name)
+    if GOVERNANCE_START in text:
+        # Already governed by CTX404; there is nothing left to decide about this file.
+        return None
+    return {
+        "path": name,
+        "needsRename": name != CLAUDE_MD,
+        "linkedDocs": linked_local_docs(target, name),
+    }
+
+
 def detect_authorities(target: Path) -> list[dict[str, str]]:
-    return [
+    authorities = [
         {"path": relative, "kind": kind}
         for relative, kind in AUTHORITY_CANDIDATES
         if (target / relative).exists()
     ]
+    known = {item["path"] for item in authorities}
+    review = review_claude_md(target)
+    for relative in (review or {}).get("linkedDocs", []):
+        if relative not in known:
+            authorities.append({"path": relative, "kind": "claude-md-reference"})
+    return authorities
 
 
 def authority_policy(authority_mode: str) -> str:
@@ -135,10 +242,213 @@ def authority_policy(authority_mode: str) -> str:
     )
 
 
-def prepare(target: Path, authority_mode: str | None = None) -> dict[str, object]:
+def rename_claude_md_to(target: Path, current_name: str, new_name: str) -> None:
+    """Rename through Git in two steps, since a case-only rename is a no-op on Windows."""
+    git = ensure_tool("git")
+    temporary = f".ctx404-claude-{uuid.uuid4().hex}.md"
+    tracked = run([git, "ls-files", "--error-unmatch", current_name], target).returncode == 0
+    if tracked:
+        for source, destination in ((current_name, temporary), (temporary, new_name)):
+            result = run([git, "mv", source, destination], target)
+            if result.returncode != 0:
+                raise BootstrapError(result.stderr.strip() or f"git mv failed: {source}")
+        return
+    (target / current_name).rename(target / temporary)
+    (target / temporary).rename(target / new_name)
+
+
+def rename_claude_md(target: Path, current_name: str) -> None:
+    rename_claude_md_to(target, current_name, CLAUDE_MD)
+
+
+def receipt_path(target: Path) -> Path:
+    return require_git_dir(target) / RECEIPT_STATE
+
+
+def load_receipt(target: Path) -> dict[str, object] | None:
+    resolved = git_dir(target)
+    if not resolved:
+        return None
+    path = resolved / RECEIPT_STATE
+    if not path.is_file():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        # A half-written receipt is itself evidence of an interrupted run.
+        return {"phase": "installing", "corrupt": True, "created": [], "modified": []}
+
+
+def save_receipt(target: Path, receipt: dict[str, object]) -> None:
+    """Persist before acting, so a killed process still leaves a usable trail."""
+    path = receipt_path(target)
+    path.write_text(json.dumps(receipt, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def file_digest(path: Path) -> str | None:
+    if not path.is_file():
+        return None
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def revert(target: Path, force: bool = False) -> dict[str, object]:
+    """Undo exactly what the recorded run did, refusing on anything changed since."""
+    receipt = load_receipt(target)
+    if not receipt:
+        raise BootstrapError("No CTX404 receipt found; there is nothing recorded to revert")
+
+    # An interrupted run has an empty `created`; the plan is the only complete record.
+    interrupted = receipt.get("phase") == "installing"
+    recorded = receipt.get("planned", []) if interrupted else receipt.get("created", [])
+    created = [str(item) for item in recorded]
+    modified = receipt.get("modified", [])
+    renamed = receipt.get("renamed")
+
+    changed: list[str] = []
+    if not force:
+        for relative, digest in (receipt.get("digests") or {}).items():
+            if file_digest(target / relative) != digest:
+                changed.append(relative)
+    if changed:
+        raise BootstrapError(
+            "Refusing to revert: these files changed after installation: "
+            + ", ".join(sorted(changed))
+            + ". Inspect them first, or rerun with --force to discard the changes."
+        )
+
+    removed: list[str] = []
+    for relative in reversed(created):
+        path = target / relative
+        if path.is_file():
+            path.unlink()
+            removed.append(relative)
+    for relative in sorted({str(Path(item).parent) for item in created}, reverse=True):
+        directory = target / relative
+        while directory != target and directory.is_dir() and not any(directory.iterdir()):
+            directory.rmdir()
+            directory = directory.parent
+
+    restored: list[str] = []
+    for entry in modified:
+        backup = Path(str(entry["backup"]))
+        destination = target / str(entry["path"])
+        if backup.is_file():
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(backup, destination)
+            restored.append(str(entry["path"]))
+        elif destination.is_file():
+            destination.unlink()
+            removed.append(str(entry["path"]))
+
+    if renamed:
+        current = target / str(renamed["to"])
+        if current.is_file():
+            rename_claude_md_to(target, str(renamed["to"]), str(renamed["from"]))
+
+    warnings: list[str] = []
+    leftovers = [
+        str(path.relative_to(target).as_posix())
+        for path in sorted((target / ".claude").rglob("*"))
+        if path.is_file()
+    ] if (target / ".claude").is_dir() else []
+    if leftovers:
+        warnings.append(
+            ".claude/ still holds files CTX404 did not create, so it was kept: "
+            + ", ".join(leftovers)
+        )
+    git = shutil.which("git")
+    if git:
+        tracked = [item for item in created if run([git, "ls-files", "--error-unmatch", item], target).returncode == 0]
+        if tracked:
+            warnings.append(
+                "Some reverted files were already committed. They are gone from the working tree, "
+                "but remain in Git history; commit the removal. Files: " + ", ".join(sorted(tracked))
+            )
+
+    resolved = require_git_dir(target)
+    for leftover in resolved.glob("ctx404-*backup-*"):
+        if leftover.is_dir():
+            shutil.rmtree(leftover, ignore_errors=True)
+    for name in (RECEIPT_STATE, PENDING_STATE):
+        stale = resolved / name
+        if stale.is_file():
+            stale.unlink()
+
+    return {
+        "ok": True,
+        "phase": "revert",
+        "target": str(target),
+        "revertedPhase": receipt.get("phase"),
+        "removed": removed,
+        "restored": restored,
+        "renamedBack": {"from": renamed["to"], "to": renamed["from"]} if renamed else None,
+        "warnings": warnings,
+    }
+
+
+def prepare(
+    target: Path, authority_mode: str | None = None, claude_md: str | None = None
+) -> dict[str, object]:
     git = ensure_tool("git")
     ensure_tool("python")
     mode = detect_mode(target)
+
+    # A receipt still marked "installing" means a previous run died before finishing.
+    interrupted = load_receipt(target)
+    if interrupted and interrupted.get("phase") == "installing":
+        return {
+            "ok": False,
+            "phase": "preflight",
+            "target": str(target),
+            "interruptedInstall": {
+                # `created` is empty on a real kill; the plan is what revert will act on.
+                "planned": interrupted.get("planned", []),
+                "modified": [item.get("path") for item in interrupted.get("modified", [])],
+                "renamed": interrupted.get("renamed"),
+            },
+            "error": "A previous CTX404 installation was interrupted and left partial state",
+            "next": (
+                "Run `bootstrap.py revert --target <project>` to undo it, then install again. "
+                "Do not install over partial state."
+            ),
+        }
+
+    # Never touch an existing CLAUDE.md without an explicit decision. Whoever installs without
+    # reading is exactly who must not have their own instruction file edited silently.
+    review = review_claude_md(target) if mode == "adopt" else None
+    if review and claude_md is None:
+        return {
+            "ok": True,
+            "phase": "preflight",
+            "mode": mode,
+            "target": str(target),
+            "gitInitialized": False,
+            "claudeMdDecisionRequired": True,
+            "claudeMd": review,
+            "choices": ["rename", "keep", "cancel"],
+            "recommended": "rename" if review["needsRename"] else "keep",
+            "next": "Show the findings and ask. Make no project changes before an explicit decision.",
+        }
+    if review and claude_md == "rename" and review["needsRename"]:
+        if git_dir(target) is None:
+            result = run([git, "init"], target)
+            if result.returncode != 0:
+                raise BootstrapError(result.stderr.strip() or "git init failed")
+        original_name = str(review["path"])
+        rename_claude_md(target, original_name)
+        save_receipt(
+            target,
+            {
+                "version": CTX404_VERSION,
+                "phase": "prepared",
+                "renamed": {"from": original_name, "to": CLAUDE_MD},
+                "created": [],
+                "modified": [],
+                "digests": {},
+            },
+        )
+        review = review_claude_md(target)
+
     authorities = detect_authorities(target) if mode == "adopt" else []
     if authorities and authority_mode is None:
         return {
@@ -147,6 +457,7 @@ def prepare(target: Path, authority_mode: str | None = None) -> dict[str, object
             "mode": mode,
             "target": str(target),
             "gitInitialized": False,
+            "claudeMd": review,
             "authorityDecisionRequired": True,
             "detectedAuthorities": authorities,
             "choices": ["index", "exclusive", "cancel"],
@@ -157,13 +468,36 @@ def prepare(target: Path, authority_mode: str | None = None) -> dict[str, object
     selected_authority_mode = authority_mode or "exclusive"
 
     created_git = False
-    if not (target / ".git").exists():
+    if git_dir(target) is None:
         result = run([git, "init"], target)
         if result.returncode != 0:
             raise BootstrapError(result.stderr.strip() or "git init failed")
         created_git = True
 
-    pending_path = target / ".git" / PENDING_STATE
+    # Context that Git ignores never reaches another machine, which is the whole promise.
+    # There is no viable "install anyway": .git/info/exclude cannot override .gitignore, and
+    # forcing every future topic with `git add -f` is not a state anyone can maintain.
+    ignored = context_ignored(target)
+    if ignored:
+        return {
+            "ok": False,
+            "phase": "preflight",
+            "mode": mode,
+            "target": str(target),
+            "gitInitialized": created_git,
+            "contextIgnored": ignored,
+            "recipe": list(IGNORE_RECIPE),
+            "error": (
+                f"Git ignores the CTX404 context: {ignored['source']}:{ignored['line']} "
+                f"matches {ignored['pattern']}"
+            ),
+            "next": (
+                "Show the offending rule and the replacement recipe, then stop. Installing while "
+                "the context is ignored delivers nothing. Rerun prepare after the rule is fixed."
+            ),
+        }
+
+    pending_path = require_git_dir(target) / PENDING_STATE
     if pending_path.exists():
         pending = json.loads(pending_path.read_text(encoding="utf-8"))
         mode = str(pending.get("mode", mode))
@@ -175,6 +509,7 @@ def prepare(target: Path, authority_mode: str | None = None) -> dict[str, object
                 "mode": mode,
                 "authorityMode": selected_authority_mode,
                 "detectedAuthorities": authorities,
+                "claudeMd": review,
             }
         )
         + "\n",
@@ -189,6 +524,7 @@ def prepare(target: Path, authority_mode: str | None = None) -> dict[str, object
         "gitInitialized": created_git,
         "authorityMode": selected_authority_mode,
         "detectedAuthorities": authorities,
+        "claudeMd": review,
         "authorityDecisionRequired": False,
         "next": "Run the install phase. Native /init and recap remain optional user guidance afterward.",
     }
@@ -241,7 +577,7 @@ def consolidate_claude_md(target: Path, created: list[str], updated: list[str]) 
     stub = (TEMPLATES_ROOT / "CLAUDE.governance.md").read_text(encoding="utf-8").strip()
     stub = stub.replace("{{CTX404_VERSION}}", CTX404_VERSION)
     claude_path = target / "CLAUDE.md"
-    existing = claude_path.read_text(encoding="utf-8").strip() if claude_path.exists() else ""
+    existing = read_utf8(claude_path).strip() if claude_path.exists() else ""
 
     if GOVERNANCE_START in existing or GOVERNANCE_END in existing:
         raise BootstrapError("CLAUDE.md already contains CTX404 governance markers")
@@ -378,10 +714,15 @@ def backup_existing(target: Path, relative_paths: tuple[str, ...], backup_root: 
 def install(target: Path) -> dict[str, object]:
     ensure_tool("git")
     ensure_tool("python")
-    if not (target / ".git").is_dir():
-        raise BootstrapError("Git is not initialized. Run the prepare phase first.")
+    resolved_git = require_git_dir(target)
 
-    pending_path = target / ".git" / PENDING_STATE
+    interrupted = load_receipt(target)
+    if interrupted and interrupted.get("phase") == "installing":
+        raise BootstrapError(
+            "A previous CTX404 installation was interrupted. Run the revert phase before installing again."
+        )
+
+    pending_path = resolved_git / PENDING_STATE
     if not pending_path.is_file():
         raise BootstrapError("CTX404 prepare state is missing. Run the prepare phase first.")
     pending = json.loads(pending_path.read_text(encoding="utf-8"))
@@ -444,8 +785,36 @@ def install(target: Path) -> dict[str, object]:
 
     created: list[str] = []
     updated: list[str] = []
-    backup_root = target / ".git" / f"ctx404-backup-{uuid.uuid4().hex}"
+    backup_root = resolved_git / f"ctx404-backup-{uuid.uuid4().hex}"
     backup_existing(target, ("CLAUDE.md", ".claude/settings.json"), backup_root)
+
+    # Every path this run may write, recorded before the first write. A killed process cannot
+    # update a receipt on its way out, so the plan has to be complete up front: revert deletes
+    # whichever planned paths exist. `created` is refined afterwards for the successful case.
+    planned = [
+        *( ["README.md"] if mode == "new" else [] ),
+        *MANAGED_FILES,
+        *RENDERED_FILES,
+        "CLAUDE.md",
+        ".claude/settings.json",
+    ]
+    previous = load_receipt(target) or {}
+    receipt: dict[str, object] = {
+        "version": CTX404_VERSION,
+        "phase": "installing",
+        "mode": mode,
+        "target": str(target),
+        "renamed": previous.get("renamed"),
+        "planned": planned,
+        "created": created,
+        "modified": [
+            {"path": relative, "backup": str(backup_root / relative)}
+            for relative in ("CLAUDE.md", ".claude/settings.json")
+            if (backup_root / relative).is_file()
+        ],
+        "digests": {},
+    }
+    save_receipt(target, receipt)
     try:
         if mode == "new":
             copy_template("README.md", target, created)
@@ -460,11 +829,22 @@ def install(target: Path) -> dict[str, object]:
         result = run([sys.executable, str(validator), "validate", "--root", str(target)], target)
         if result.returncode != 0:
             raise BootstrapError(result.stdout.strip() or result.stderr.strip() or "Context validation failed")
+        save_receipt(target, receipt)
     except Exception:
         rollback(target, created, backup_root)
+        receipt_file = resolved_git / RECEIPT_STATE
+        if receipt_file.is_file():
+            receipt_file.unlink()
         raise
-    if backup_root.exists():
-        shutil.rmtree(backup_root)
+
+    # Keep the backups: revert needs them to restore a merged CLAUDE.md or settings.json.
+    receipt["phase"] = "installed"
+    receipt["digests"] = {
+        relative: file_digest(target / relative)
+        for relative in [*created, *updated]
+        if file_digest(target / relative)
+    }
+    save_receipt(target, receipt)
     pending_path.unlink()
 
     return {
@@ -715,7 +1095,7 @@ def upgrade_apply(target: Path, authority_mode: str | None) -> dict[str, object]
     created: list[str] = []
     refreshed: list[str] = []
     warnings: list[str] = []
-    backup_root = target / ".git" / f"ctx404-upgrade-backup-{uuid.uuid4().hex}"
+    backup_root = require_git_dir(target) / f"ctx404-upgrade-backup-{uuid.uuid4().hex}"
     backup_existing(
         target,
         ("CLAUDE.md", ".claude/context/index.json", ".claude/context/history.jsonl",
@@ -777,26 +1157,33 @@ def upgrade_apply(target: Path, authority_mode: str | None) -> dict[str, object]
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="phase", required=True)
-    for phase in ("prepare", "install", "upgrade-plan", "upgrade-apply"):
+    for phase in ("prepare", "install", "upgrade-plan", "upgrade-apply", "revert"):
         command = subparsers.add_parser(phase)
         command.add_argument("--target", default=".", help="Project directory (default: current directory)")
         if phase in {"prepare", "upgrade-plan", "upgrade-apply"}:
             command.add_argument("--authority-mode", choices=("index", "exclusive"))
+        if phase == "prepare":
+            command.add_argument("--claude-md", choices=("rename", "keep"))
+        if phase == "revert":
+            command.add_argument("--force", action="store_true",
+                                 help="Discard later changes to files CTX404 created")
     args = parser.parse_args()
 
     try:
         target = resolve_target(args.target)
         if args.phase == "prepare":
-            result = prepare(target, args.authority_mode)
+            result = prepare(target, args.authority_mode, args.claude_md)
         elif args.phase == "install":
             result = install(target)
+        elif args.phase == "revert":
+            result = revert(target, args.force)
         elif args.phase == "upgrade-plan":
             result = upgrade_plan(target, args.authority_mode)
         else:
             result = upgrade_apply(target, args.authority_mode)
         print(json.dumps(result, ensure_ascii=False, indent=2))
-        return 0
-    except (BootstrapError, OSError, json.JSONDecodeError) as exc:
+        return 0 if result.get("ok", True) else 1
+    except (BootstrapError, OSError, ValueError) as exc:
         print(json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False, indent=2))
         return 1
 

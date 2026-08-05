@@ -4,12 +4,25 @@ All notable CTX404 changes are documented here. The project follows Semantic Ver
 
 ## [Unreleased]
 
+### Added
+
+- `prepare` refuses to install when Git ignores `.claude/context/`, naming the exact rule from `git check-ignore -v` and printing the replacement recipe. A `.claude/` ignore is common — people reach for it to keep `settings.local.json` out of the repository — and it silently voids the only thing CTX404 promises, since the context never reaches another machine. There is deliberately no "install anyway": `.git/info/exclude` cannot override `.gitignore`, and forcing every future topic with `git add -f` is not a maintainable state. CTX404 reports and stops; it never edits the ignore file, which may belong to the team or to the machine.
+- `doctor` warns when the context becomes ignored after installation, since the rule can be added months later by someone else.
+- `prepare` stops before touching an existing `CLAUDE.md`, reporting its real filename and the local Markdown files it links to. A project that governs its own context names those files from its instructions, which detects setups a fixed filename list misses. Those files become detected authorities and flow into the existing index/exclusive/cancel gate.
+- `prepare --claude-md rename` fixes a `claude.md` whose casing only works on case-insensitive filesystems, using a two-step `git mv` because a direct rename is a no-op on Windows. Left alone, the project's own rules silently stop loading on Linux and in CI.
+
+- A `revert` phase undoes an installation: it removes exactly the recorded files, restores a merged `CLAUDE.md` or `.claude/settings.json` from backup, and reverses a filename rename. It refuses when a created file changed afterwards, naming those files, since that usually means real context was written there; `--force` discards them. Files already committed are removed from the working tree but never rewritten out of history.
+- An installation receipt is written inside the Git directory before each step, so a process killed mid-install still leaves an exact record. `prepare` and `install` now detect that partial state and refuse to run over it, pointing at `revert` instead of failing with a confusing managed-path collision.
+
+### Fixed
+
+- Installation and upgrade work inside a Git worktree or submodule, where `.git` is a file rather than a directory. The Git directory is now resolved with `git rev-parse` instead of assumed.
+- A `CLAUDE.md` that is not valid UTF-8 fails with a clear message instead of a raw `UnicodeDecodeError` traceback, and the process exit code now reflects the `ok` field.
+
 ### Changed
 
 - `/ctx404` and `/ctx404 upgrade` now report in one short paragraph and point at the README and the repository instead of reproducing them. Upgrade asks a single yes-or-no question instead of presenting a change table. The install flow had seven separate "tell the user" steps and the upgrade added two more, which together produced a wall of text on what is a chore; a long report buries the two things the user must actually do.
 - `/ctx404 upgrade` migrates the protocol and stops. Project content the new version made inconsistent is reported as a one-line suggestion instead of being rewritten in the same turn.
-
-### Added
 
 - `Why context lives in the repository` section in the governance template: durable context is versioned in the repository because the same work continues on more than one machine, and Git is what synchronizes them. Includes the portability test — does the mechanism reach the other machines through `git pull`? — and an explicit instruction not to fork the rule per repository.
 

@@ -17,31 +17,59 @@ Detect whether the target is new or already contains a project. Bootstrap new re
    python "<skill-directory>/scripts/bootstrap.py" prepare --target "<project-root>"
    ```
 
-3. Read the JSON result. If `authorityDecisionRequired` is true, stop before installation and present the detected paths plus exactly these choices:
-   - `index` (recommended): keep existing sources authoritative and use CTX404 as the compact routing and continuity layer;
-   - `exclusive`: make CTX404 the primary durable-context authority, with later migration or retirement of the previous system requiring separate explicit approval;
-   - `cancel`: leave the project unchanged.
-4. Never choose for the user. If the user selects `index` or `exclusive`, rerun prepare with `--authority-mode <choice>`. If the user selects `cancel`, stop immediately.
-5. Read the final JSON result's `mode` field. Do not invoke native `/init` or generate a recap automatically in either mode.
-6. If `mode` is `adopt`, do not explore or summarize the existing repository as part of installation.
-7. Install the CTX404 structure:
+3. Read the JSON result. If `ok` is false and `contextIgnored` is present, stop. Git ignores the context directory, so nothing CTX404 writes would ever reach another machine — installing would deliver none of what it promises. Report, in at most ten lines:
+
+   - the offending rule exactly as returned: `<contextIgnored.source>:<contextIgnored.line>` matches `<contextIgnored.pattern>`. Read the source out loud rather than assuming `.gitignore`; it may be `.git/info/exclude` or a global ignore file, and then the fix is somewhere else entirely.
+   - the `recipe` lines verbatim, as a code block, as the replacement.
+   - one sentence on why the obvious fix fails: `.claude/` cannot be negated, because Git does not descend into an excluded directory, which is why the recipe starts at `.claude/*`. `settings.local.json` stays ignored.
+   - that they should fix the rule and run `/ctx404` again.
+
+   Never offer to install anyway, and never edit the ignore file yourself. `.git/info/exclude` cannot override `.gitignore`, and forcing each future topic with `git add -f` is not a state anyone maintains, so there is no working alternative to offer. The ignore file may also belong to the whole team or to the machine.
+
+4. Read the JSON result. If `claudeMdDecisionRequired` is true, stop before installation. The project already has its own `CLAUDE.md` and CTX404 must never edit it unattended. Say what was found and ask, in at most six lines:
+
+   - When `claudeMd.needsRename` is true, say the file is named `<claudeMd.path>` instead of `CLAUDE.md`. Explain the real risk, not a style complaint: it works on Windows and macOS because those filesystems ignore case, but on Linux, in a container or in CI, Claude Code looks for `CLAUDE.md`, does not find it, and the project's own rules silently stop loading. Offer `[S] Renomear  [N] Manter  [C] Cancelar` (`[R] Rename  [K] Keep  [C] Cancel` in English).
+   - When `claudeMd.linkedDocs` is not empty, name those files and say plainly that this repository already keeps its own context control. Do not call it redundant outright — it is redundant in `exclusive` mode and useful in `index` mode, and the next gate is where that is decided.
+   - Rerun prepare with `--claude-md rename` or `--claude-md keep`. On cancel, stop and change nothing.
+
+   `.claude/CLAUDE.md` and `CLAUDE.local.md` are legitimate locations, not naming mistakes; never offer to rename them.
+
+5. Read the JSON result again. If `authorityDecisionRequired` is true, stop before installation, name the detected paths in one line, and present exactly these choices with bracketed initials, labelled in Portuguese if the user writes Portuguese and in English otherwise. Files carrying `kind: claude-md-reference` came from the project's own instructions, so say so — the user wrote those rules and needs to recognise them. The option tokens themselves stay verbatim, since they are the values passed to `--authority-mode`:
+   - `[I] index` (recommended): keep existing sources authoritative and use CTX404 as the compact routing and continuity layer;
+   - `[E] exclusive`: make CTX404 the primary durable-context authority, with later migration or retirement of the previous system requiring separate explicit approval;
+   - `[C] cancel`: leave the project unchanged.
+6. Never choose for the user. Accept the initial or the whole word, in any case; treat any other reply as not an answer and ask once more rather than assuming. If the user selects `index` or `exclusive`, rerun prepare with `--authority-mode <choice>`. If the user selects `cancel`, stop immediately.
+7. Read the final JSON result's `mode` field. Do not invoke native `/init` or generate a recap automatically in either mode.
+8. If `mode` is `adopt`, do not explore or summarize the existing repository as part of installation.
+9. Install the CTX404 structure:
 
    ```powershell
    python "<skill-directory>/scripts/bootstrap.py" install --target "<project-root>"
    ```
 
-8. Validate the installed context system:
+10. Validate the installed context system:
 
    ```powershell
    python "<project-root>/.claude/scripts/context_tool.py" validate --root "<project-root>"
    ```
 
-9. Report in **one short paragraph and nothing else**. Say it worked, say the one or two things the user must still do — restart Claude Code, accept the workspace trust dialog once — and close by pointing at the documentation instead of reproducing it: `README.md` in the project and https://github.com/claudneysessa/ctx404. Nothing else earns a line — no file lists, no tables, no headings, no architecture, no narration of the commands you ran, no explanation of what CTX404 is. Installing a tool is a chore, not an event; whoever wants the detail follows the link.
+11. Report with **this block, copied whole, and nothing around it**. No sentence before, none after. Always English, whatever language the user writes in:
 
-   For `adopt`, one extra clause in the same paragraph: durable context starts now, nothing about the repository's past was analyzed. In `index` mode, name the preserved authority paths there. If `alreadyInstalled` is true, the paragraph is one sentence with the installed and skill versions and whether an upgrade exists; never present a global skill update as a project upgrade, and never overlay project protocol files.
+   ```text
+   ====================================
+   CTX404 Installed
+   Restart session to apply updates
+   CTX404 now at <version>
+   https://github.com/claudneysessa/ctx404
+   ====================================
+   ```
 
-10. For `new` only, after that paragraph, refine `.claude/context/project-definition.md` from explicit user intent and verified evidence. Define only personas that materially help the project, mark uncertain statements as assumptions, and never invent missing facts. Synchronize `README.md` and `.claude/context/index.json`. If the purpose is unavailable, ask one minimal question instead of inventing it.
-11. Stop using CTX404 after this handoff; subsequent maintenance belongs to the repository protocol.
+   Replace `<version>` with the real one. Three lines may be added inside the block, and only when they apply: the preserved authority paths in `index` mode; `Durable context starts now` for `adopt`; `Accept the workspace trust dialog once`. Nothing else is ever added — no file list, no table, no architecture, no narration of the commands you ran.
+
+   If `alreadyInstalled` is true, replace the body with the installed version, the skill version, and whether an upgrade exists. Never present a global skill update as a project upgrade, and never overlay project protocol files.
+
+12. For `new` only, after that paragraph, refine `.claude/context/project-definition.md` from explicit user intent and verified evidence. Define only personas that materially help the project, mark uncertain statements as assumptions, and never invent missing facts. Synchronize `README.md` and `.claude/context/index.json`. If the purpose is unavailable, ask one minimal question instead of inventing it.
+13. Stop using CTX404 after this handoff; subsequent maintenance belongs to the repository protocol.
 
 ## Reviewed upgrade
 
@@ -52,7 +80,14 @@ Detect whether the target is new or already contains a project. Bootstrap new re
    python "<skill-directory>/scripts/bootstrap.py" upgrade-plan --target "<project-root>"
    ```
 
-3. Ask **one question and nothing else**: whether to upgrade from the installed version to the target version. Two lines at most — the versions, and the question. No table, no per-file list, no description of what changes, no benefit pitch; the user invoked `upgrade`, they already want it. If they want the detail before deciding, point at https://github.com/claudneysessa/ctx404 and the `CHANGELOG.md`. If no reviewed migration path exists, say so in one line and stop.
+3. Ask **one question and nothing else**: whether to upgrade from the installed version to the target version. Two lines at most — the versions, then the question with its options spelled out as bracketed initials. Pick the wording from how the user has been writing: Portuguese gets `Aplicar? [S] Sim  [N] Não`, every other language gets `Apply? [Y] Yes  [N] No`.
+
+   ```text
+   CTX404 0.3.0-beta.1 → 0.4.0-beta.1.
+   Aplicar? [S] Sim  [N] Não
+   ```
+
+   Never ask a bare "apply?" — the user must be able to see what a valid answer looks like without guessing. Accept the initial or the whole word, in either language, in any case; treat any other reply as not an answer and ask once more rather than assuming. No table, no per-file list, no description of what changes, no benefit pitch; the user invoked `upgrade`, they already want it. If they ask what changes before deciding, point at https://github.com/claudneysessa/ctx404 and the `CHANGELOG.md`. If no reviewed migration path exists, say so in one line and stop.
 4. If `authorityDecisionRequired` is true, present `index`, `exclusive` and `cancel` exactly as in bootstrap. Never choose for the user.
 5. After explicit approval, apply the selected versioned migration:
 
@@ -60,8 +95,33 @@ Detect whether the target is new or already contains a project. Bootstrap new re
    python "<skill-directory>/scripts/bootstrap.py" upgrade-apply --target "<project-root>" --authority-mode "<choice>"
    ```
 
-6. Report the result in **one short paragraph and nothing else**: the new version, that doctor passed, anything in `warnings`, and the restart and trust reminders if they apply. Close by pointing at `CHANGELOG.md` and https://github.com/claudneysessa/ctx404 for what changed. Do not restate the plan, do not list created files, do not explain the new architecture — the user approved an upgrade, not a briefing. Never delete or retire an old governance system as part of upgrade.
+6. Report with **this block, copied whole, and nothing around it**. No sentence before, none after. Always English, whatever language the user writes in:
+
+   ```text
+   ====================================
+   CTX404 Updated
+   Restart session to apply updates
+   CTX404 now at <version>
+   https://github.com/claudneysessa/ctx404
+   ====================================
+   ```
+
+   Replace `<version>` with the real one. Add a line inside the block only when `warnings` is non-empty, one per warning; nothing else is ever added. Never delete or retire an old governance system as part of upgrade.
+
 7. Upgrade the protocol and nothing else. If you notice project content the new version made inconsistent, state it in one line as a suggestion and stop; do not rewrite the user's files in the same turn unless asked.
+
+## Revert
+
+1. CTX404 records what it did in a receipt inside the Git directory, written before each step so an interrupted run still leaves an exact trail.
+2. If `prepare` or `install` reports `interruptedInstall`, a previous run died partway. Do not install over it. Say so in one line and run:
+
+   ```powershell
+   python "<skill-directory>/scripts/bootstrap.py" revert --target "<project-root>"
+   ```
+
+3. Use the same command when the user asks to undo a CTX404 installation. It removes exactly what was created, restores a merged `CLAUDE.md` or `.claude/settings.json` from backup, and undoes a filename rename.
+4. Revert refuses when a file CTX404 created has changed since installation, naming those files. That usually means real work was recorded there. Show the list and confirm before rerunning with `--force`, which discards it.
+5. Relay any `warnings`. Files already committed are removed from the working tree but stay in Git history; CTX404 never rewrites history.
 
 ## Guardrails
 
