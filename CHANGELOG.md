@@ -4,6 +4,11 @@ All notable CTX404 changes are documented here. The project follows Semantic Ver
 
 ## [Unreleased]
 
+### Changed
+
+- `/ctx404` and `/ctx404 upgrade` now report in one short paragraph and point at the README and the repository instead of reproducing them. Upgrade asks a single yes-or-no question instead of presenting a change table. The install flow had seven separate "tell the user" steps and the upgrade added two more, which together produced a wall of text on what is a chore; a long report buries the two things the user must actually do.
+- `/ctx404 upgrade` migrates the protocol and stops. Project content the new version made inconsistent is reported as a one-line suggestion instead of being rewritten in the same turn.
+
 ### Added
 
 - `Why context lives in the repository` section in the governance template: durable context is versioned in the repository because the same work continues on more than one machine, and Git is what synchronizes them. Includes the portability test — does the mechanism reach the other machines through `git pull`? — and an explicit instruction not to fork the rule per repository.

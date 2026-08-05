@@ -36,15 +36,12 @@ Detect whether the target is new or already contains a project. Bootstrap new re
    python "<project-root>/.claude/scripts/context_tool.py" validate --root "<project-root>"
    ```
 
-9. Report the repository mode, authority mode, detected authorities, created or merged files, and validation result.
-   If `alreadyInstalled` is true, report `installedVersion`, `skillVersion`, and `upgradeAvailable`. Never present a global skill update as a project upgrade and never overlay project protocol files.
-10. Tell the user that CTX404 has finished and the repository is now self-maintaining.
-11. Explain that project agents written to `.claude/agents/` become available after Claude Code restarts because file-defined agents load at session start.
-12. Tell the user to accept the workspace trust dialog once in this project. `.claude/settings.json` carries an allow rule for the context helper, and Claude Code ignores `permissions.allow` from project settings until the workspace is trusted; without it every helper call prompts. Hooks are unaffected.
-13. State that native `/init` and recap were intentionally not run. Recommend them only as optional manual orientation choices after installation. Require user review before saving either result as durable context.
-14. For `new`, take ownership of the repository in the same turn and refine `.claude/context/project-definition.md` from explicit user intent and verified evidence. Define only personas that materially help the project, mark uncertain statements as assumptions, and never invent missing facts. Synchronize `README.md` and `.claude/context/index.json`. If the purpose is unavailable, ask only one minimal question instead of inventing it.
-15. For `adopt`, state that no retrospective analysis was performed and durable context starts now. If authority mode is `index`, name the preserved authority paths and explain that CTX404 points to them instead of duplicating their content.
-16. Stop using CTX404 after this handoff; subsequent maintenance belongs to the repository protocol.
+9. Report in **one short paragraph and nothing else**. Say it worked, say the one or two things the user must still do — restart Claude Code, accept the workspace trust dialog once — and close by pointing at the documentation instead of reproducing it: `README.md` in the project and https://github.com/claudneysessa/ctx404. Nothing else earns a line — no file lists, no tables, no headings, no architecture, no narration of the commands you ran, no explanation of what CTX404 is. Installing a tool is a chore, not an event; whoever wants the detail follows the link.
+
+   For `adopt`, one extra clause in the same paragraph: durable context starts now, nothing about the repository's past was analyzed. In `index` mode, name the preserved authority paths there. If `alreadyInstalled` is true, the paragraph is one sentence with the installed and skill versions and whether an upgrade exists; never present a global skill update as a project upgrade, and never overlay project protocol files.
+
+10. For `new` only, after that paragraph, refine `.claude/context/project-definition.md` from explicit user intent and verified evidence. Define only personas that materially help the project, mark uncertain statements as assumptions, and never invent missing facts. Synchronize `README.md` and `.claude/context/index.json`. If the purpose is unavailable, ask one minimal question instead of inventing it.
+11. Stop using CTX404 after this handoff; subsequent maintenance belongs to the repository protocol.
 
 ## Reviewed upgrade
 
@@ -55,7 +52,7 @@ Detect whether the target is new or already contains a project. Bootstrap new re
    python "<skill-directory>/scripts/bootstrap.py" upgrade-plan --target "<project-root>"
    ```
 
-3. Report installed version, target version, exact planned changes and preserved state. If no reviewed migration path exists, stop.
+3. Ask **one question and nothing else**: whether to upgrade from the installed version to the target version. Two lines at most — the versions, and the question. No table, no per-file list, no description of what changes, no benefit pitch; the user invoked `upgrade`, they already want it. If they want the detail before deciding, point at https://github.com/claudneysessa/ctx404 and the `CHANGELOG.md`. If no reviewed migration path exists, say so in one line and stop.
 4. If `authorityDecisionRequired` is true, present `index`, `exclusive` and `cancel` exactly as in bootstrap. Never choose for the user.
 5. After explicit approval, apply the selected versioned migration:
 
@@ -63,7 +60,8 @@ Detect whether the target is new or already contains a project. Bootstrap new re
    python "<skill-directory>/scripts/bootstrap.py" upgrade-apply --target "<project-root>" --authority-mode "<choice>"
    ```
 
-6. Report the backup-safe result and doctor validation. Never delete or retire an old governance system as part of upgrade.
+6. Report the result in **one short paragraph and nothing else**: the new version, that doctor passed, anything in `warnings`, and the restart and trust reminders if they apply. Close by pointing at `CHANGELOG.md` and https://github.com/claudneysessa/ctx404 for what changed. Do not restate the plan, do not list created files, do not explain the new architecture — the user approved an upgrade, not a briefing. Never delete or retire an old governance system as part of upgrade.
+7. Upgrade the protocol and nothing else. If you notice project content the new version made inconsistent, state it in one line as a suggestion and stop; do not rewrite the user's files in the same turn unless asked.
 
 ## Guardrails
 
@@ -77,7 +75,8 @@ Detect whether the target is new or already contains a project. Bootstrap new re
 - Treat project protocol upgrades as a separate reviewed migration. Reinstalling the global skill or rerunning `/ctx404` must not silently overlay an initialized repository.
 - Never delete, overwrite, publish, commit, add a remote, or push.
 - Preserve any existing `CLAUDE.md`; install the import stub above it and leave everything else untouched.
-- On `upgrade-apply` from a pre-0.4.0 project, the inline governance block is removed from `CLAUDE.md` and replaced by the stub. Report `hops`, `created` and any `warnings` so the user sees exactly what moved.
+- On `upgrade-apply` from a pre-0.4.0 project, the inline governance block is removed from `CLAUDE.md` and replaced by the stub. Surface `warnings` if any are returned; the rest of the payload is for you, not for the user.
+- Installing and upgrading are chores. One short paragraph each, and a link for whoever wants the detail. A long report is a defect: it buries the two or three things the user must actually do, and it reads as a tool talking about itself.
 - Never invoke native `/init` or generate a recap during CTX404 installation. Both are optional and user-controlled after the deterministic installation is complete.
 - Never treat optional `/init` or recap output as project evidence until the user reviews it; refine project context from explicit intent and verified files.
 - Do not enumerate or read the installed CTX404 directory. The workflow paths are defined here; invoke the bundled scripts directly.
