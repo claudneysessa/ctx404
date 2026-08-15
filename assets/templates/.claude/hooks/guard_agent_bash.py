@@ -11,7 +11,7 @@ import sys
 AUXILIARY_AGENTS = {"context-scout", "context-curator"}
 SAFE_COMMAND = re.compile(
     r'^\s*python(?:\.exe)?\s+"?\.claude[\\/]scripts[\\/]context_tool\.py"?\s+'
-    r'(?:validate|doctor|sync|status|find|list-topics|history|snapshot)'
+    r'(?:validate|doctor|sync|status|find|review|list-topics|history|snapshot)'
     r'(?:\s+[^;&|><`\r\n]*)?\s*$',
     re.IGNORECASE,
 )

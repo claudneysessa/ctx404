@@ -35,6 +35,44 @@ the always-loaded core in .claude/ctx404-instructions.md.
 
 `topic-write` builds the frontmatter, so do not hand-write it. Supply a body in Markdown, a summary under 200 characters, and up to 10 keywords. Topic ids use lowercase letters, digits and hyphens. `.claude/context/templates/topic.md` documents the resulting shape for reading, not for copying by hand.
 
+## Record a deliberation
+
+A session that only discussed still produces context. Write it as a topic body with these headings, omitting any that has no content:
+
+```markdown
+## Decided
+What holds now, in the user's own terms.
+
+## Rejected
+Each option considered and turned down, with the reason it was turned down.
+This section is the point of the record. A rejected option that is not written
+down returns next session as a fresh suggestion, and the user pays for it twice.
+
+## Revoked
+A decision that was made and later reversed, what replaced it, and when.
+Keep the original decision visible; do not silently overwrite it.
+
+## Constraints
+Requirements, preferences, and limits the user revealed while deciding.
+
+## Open
+What is still undecided, phrased as the question that needs an answer.
+```
+
+Use `--event-type decision` on `complete` so the history distinguishes deliberation from a code change. When a later session reverses one of these, update the same topic instead of opening a new one: append to `Revoked`, then correct `Decided`.
+
+## Review deliberation
+
+Topic bodies are not reachable through `find`, which only reads summaries and keywords. Read them back with `review`:
+
+```text
+python .claude/scripts/context_tool.py review --section rejected
+python .claude/scripts/context_tool.py review --query "<term>"
+python .claude/scripts/context_tool.py review --topic "<topic-id>"
+```
+
+Run it before proposing anything that resembles previous work. If the idea is already under `Rejected`, say so and give the recorded reason instead of proposing it again as if it were new. The user is entitled to reconsider a rejected option deliberately; they are not required to remember it unaided, and neither are you.
+
 ## Context boundaries
 
 - `.claude/context/index.json` is a compact map, not an encyclopedia.

@@ -17,7 +17,7 @@ from pathlib import Path
 
 SKILL_ROOT = Path(__file__).resolve().parent.parent
 TEMPLATES_ROOT = SKILL_ROOT / "assets" / "templates"
-CTX404_VERSION = "0.4.0-beta.1"
+CTX404_VERSION = "0.4.0-beta.2"
 GOVERNANCE_START = "<!-- ctx404:governance:start"
 GOVERNANCE_END = "<!-- ctx404:governance:end -->"
 PENDING_STATE = "ctx404-pending.json"
@@ -25,8 +25,9 @@ CLAUDE_MD = "CLAUDE.md"
 RECEIPT_STATE = "ctx404-receipt.json"
 VERSION_020 = "0.2.0-beta.1"
 VERSION_030 = "0.3.0-beta.1"
+VERSION_040 = "0.4.0-beta.1"
 # Ordered reviewed migration path. Each hop is applied in sequence.
-MIGRATION_CHAIN = (VERSION_020, VERSION_030, CTX404_VERSION)
+MIGRATION_CHAIN = (VERSION_020, VERSION_030, VERSION_040, CTX404_VERSION)
 LEGACY_AUTHORITY_TEXT = (
     "Claude Code auto memory is disabled for this project. `.claude/context/` is the portable, "
     "Git-versioned memory system and the only durable project-context authority."
@@ -39,9 +40,11 @@ RENDERED_FILES = (INSTRUCTIONS_FILE, DEFINITION_FILE)
 # Managed implementation. A reviewed upgrade refreshes these from the skill so the installed
 # helper matches the protocol it is told to follow. Project data is never in this list.
 REFRESHABLE_FILES = (
+    CONTEXT_RULE_FILE,
     ".claude/scripts/context_tool.py",
     ".claude/hooks/session_context.py",
     ".claude/hooks/guard_agent_bash.py",
+    ".claude/hooks/context_gate.py",
     ".claude/agents/context-scout.md",
     ".claude/agents/context-curator.md",
     ".claude/context/templates/topic.md",
@@ -61,6 +64,7 @@ MANAGED_FILES = (
     ".claude/agents/context-curator.md",
     ".claude/hooks/session_context.py",
     ".claude/hooks/guard_agent_bash.py",
+    ".claude/hooks/context_gate.py",
     ".claude/scripts/context_tool.py",
 )
 AUTHORITY_CANDIDATES = (
@@ -900,13 +904,21 @@ def hop_changes(hops: list[tuple[str, str]]) -> list[str]:
                 "CLAUDE.md authority policy",
                 ".claude/context/index.json governance map",
             ]
-        if (source, destination) == (VERSION_030, CTX404_VERSION):
+        if (source, destination) == (VERSION_030, VERSION_040):
             changes += [
                 f"CLAUDE.md governance block replaced by two imports ({INSTRUCTIONS_FILE}, {DEFINITION_FILE})",
                 f"{INSTRUCTIONS_FILE} created with the always-loaded core protocol",
                 f"{DEFINITION_FILE} created from the existing project definition",
                 f"{CONTEXT_RULE_FILE} created as a path-scoped rule",
                 ".claude/settings.json gains an allow rule for the CTX404 helper",
+            ]
+        if (source, destination) == (VERSION_040, CTX404_VERSION):
+            changes += [
+                ".claude/hooks/context_gate.py added: a Stop hook that blocks a session "
+                "which deliberated without recording",
+                ".claude/settings.json gains the Stop hook",
+                f"{INSTRUCTIONS_FILE} now counts deliberation, and rejected options, as durable context",
+                f"{CONTEXT_RULE_FILE} gains the deliberation record and the review command",
             ]
     return changes + ["managed helper, hooks, agents and templates refreshed", "history checkpoint"]
 
@@ -1048,6 +1060,45 @@ def hop_030_to_040(target: Path, selected_mode: str, created: list[str], warning
     index_path.write_text(json.dumps(index, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
+def hop_040_to_040_beta2(target: Path, selected_mode: str) -> None:
+    """Give the protocol a way to enforce itself.
+
+    Until now reading context was a hook and writing it was a request in prose. A session
+    that only deliberated - no file touched, so no diff to notice - ended with the reasoning
+    left in the chat, which is exactly the loss the project exists to prevent. This hop adds
+    the Stop gate and teaches the protocol that a rejected option is context worth keeping.
+    """
+    instructions_path = target / INSTRUCTIONS_FILE
+    instructions_path.parent.mkdir(parents=True, exist_ok=True)
+    instructions_path.write_text(render_instructions(selected_mode), encoding="utf-8", newline="\n")
+
+    # The rule and the hooks arrive through REFRESHABLE_FILES; only the version marker is manual.
+    claude_path = target / "CLAUDE.md"
+    if claude_path.is_file():
+        content = claude_path.read_text(encoding="utf-8")
+        claude_path.write_text(
+            re.sub(
+                r'(<!-- ctx404:governance:start version=")[^"]+(")',
+                lambda match: match.group(1) + CTX404_VERSION + match.group(2),
+                content,
+                count=1,
+            ),
+            encoding="utf-8",
+            newline="\n",
+        )
+
+    settings_path = target / ".claude" / "settings.json"
+    if settings_path.is_file():
+        settings_path.write_text(
+            json.dumps(merged_settings(target), ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
+
+    index_path = target / ".claude/context/index.json"
+    index = json.loads(index_path.read_text(encoding="utf-8"))
+    index["ctx404Version"] = CTX404_VERSION
+    index_path.write_text(json.dumps(index, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
 def normalized(data: bytes) -> bytes:
     return data.replace(b"\r\n", b"\n")
 
@@ -1107,8 +1158,10 @@ def upgrade_apply(target: Path, authority_mode: str | None) -> dict[str, object]
         for source, destination in hops:
             if (source, destination) == (VERSION_020, VERSION_030):
                 hop_020_to_030(target, selected_mode, authorities)
-            elif (source, destination) == (VERSION_030, CTX404_VERSION):
+            elif (source, destination) == (VERSION_030, VERSION_040):
                 hop_030_to_040(target, selected_mode, created, warnings)
+            elif (source, destination) == (VERSION_040, CTX404_VERSION):
+                hop_040_to_040_beta2(target, selected_mode)
             else:
                 raise BootstrapError(f"No reviewed migration step from {source} to {destination}")
 

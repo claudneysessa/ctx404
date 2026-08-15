@@ -83,7 +83,7 @@ Detect whether the target is new or already contains a project. Bootstrap new re
 3. Ask **one question and nothing else**: whether to upgrade from the installed version to the target version. Two lines at most — the versions, then the question with its options spelled out as bracketed initials. Pick the wording from how the user has been writing: Portuguese gets `Aplicar? [S] Sim  [N] Não`, every other language gets `Apply? [Y] Yes  [N] No`.
 
    ```text
-   CTX404 0.3.0-beta.1 → 0.4.0-beta.1.
+   CTX404 0.4.0-beta.1 → 0.4.0-beta.2.
    Aplicar? [S] Sim  [N] Não
    ```
 

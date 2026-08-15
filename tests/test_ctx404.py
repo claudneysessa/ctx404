@@ -19,6 +19,9 @@ DEFINITION = ".claude/context/project-definition.md"
 CONTEXT_RULE = ".claude/rules/ctx404-context.md"
 # Always-loaded footprint budget. The split exists to keep this small; guard it against regression.
 CORE_BUDGET_CHARS = 4200
+# Kept in step with bootstrap.CTX404_VERSION; the migration chain asserts on it below.
+CURRENT_VERSION = "0.4.0-beta.2"
+PREVIOUS_VERSION = "0.4.0-beta.1"
 
 LEGACY_AUTHORITY_TEXT = (
     "Claude Code auto memory is disabled for this project. `.claude/context/` is the portable, "
@@ -525,7 +528,7 @@ class BootstrapTests(unittest.TestCase):
             self.assertTrue(payload["alreadyInstalled"])
             self.assertTrue(payload["upgradeAvailable"])
             self.assertEqual(payload["installedVersion"], "0.2.0-beta.1")
-            self.assertEqual(payload["skillVersion"], "0.4.0-beta.1")
+            self.assertEqual(payload["skillVersion"], CURRENT_VERSION)
             self.assertEqual(claude_path.read_text(encoding="utf-8"), before)
 
     def test_reviewed_upgrade_migrates_v02_without_losing_project_context(self) -> None:
@@ -550,7 +553,12 @@ class BootstrapTests(unittest.TestCase):
             planned = json.loads(plan.stdout)
             self.assertTrue(planned["upgradeRequired"])
             self.assertEqual(
-                planned["hops"], ["0.2.0-beta.1 -> 0.3.0-beta.1", "0.3.0-beta.1 -> 0.4.0-beta.1"]
+                planned["hops"],
+                [
+                    "0.2.0-beta.1 -> 0.3.0-beta.1",
+                    f"0.3.0-beta.1 -> {PREVIOUS_VERSION}",
+                    f"{PREVIOUS_VERSION} -> {CURRENT_VERSION}",
+                ],
             )
 
             applied = run_python(
@@ -570,7 +578,7 @@ class BootstrapTests(unittest.TestCase):
             self.assertNotIn("Start every session", migrated_claude)
             self.assertNotIn("Context boundaries", migrated_claude)
             self.assertEqual(migrated_claude.count("ctx404:governance:start"), 1)
-            self.assertIn('version="0.4.0-beta.1"', migrated_claude)
+            self.assertIn(f'version="{CURRENT_VERSION}"', migrated_claude)
             self.assertIn("@.claude/ctx404-instructions.md", migrated_claude)
             self.assertIn("Project-specific guidance will evolve", migrated_claude)
 
@@ -583,7 +591,7 @@ class BootstrapTests(unittest.TestCase):
 
             migrated_index = json.loads(index_path.read_text(encoding="utf-8"))
             self.assertEqual(migrated_index["governance"]["mode"], "exclusive")
-            self.assertEqual(migrated_index["ctx404Version"], "0.4.0-beta.1")
+            self.assertEqual(migrated_index["ctx404Version"], CURRENT_VERSION)
             history = (target / ".claude/context/history.jsonl").read_text(encoding="utf-8")
             self.assertIn('"type": "upgrade"', history)
 
@@ -600,7 +608,10 @@ class BootstrapTests(unittest.TestCase):
 
             plan = run_python(BOOTSTRAP, "upgrade-plan", "--target", target)
             self.assertEqual(plan.returncode, 0, plan.stderr + plan.stdout)
-            self.assertEqual(json.loads(plan.stdout)["hops"], ["0.3.0-beta.1 -> 0.4.0-beta.1"])
+            self.assertEqual(
+                json.loads(plan.stdout)["hops"],
+                [f"0.3.0-beta.1 -> {PREVIOUS_VERSION}", f"{PREVIOUS_VERSION} -> {CURRENT_VERSION}"],
+            )
 
             applied = run_python(BOOTSTRAP, "upgrade-apply", "--target", target)
             self.assertEqual(applied.returncode, 0, applied.stderr + applied.stdout)
@@ -768,6 +779,114 @@ class BootstrapTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             result = run_python(BOOTSTRAP, "install", "--target", directory)
             self.assertNotEqual(result.returncode, 0)
+
+
+def said(text: str) -> dict[str, object]:
+    return {"type": "user", "message": {"role": "user", "content": text}}
+
+
+def recorded() -> dict[str, object]:
+    """An assistant turn that actually wrote context."""
+    return {"type": "assistant", "message": {"content": [{
+        "type": "tool_use",
+        "name": "Bash",
+        "input": {"command": 'python .claude/scripts/context_tool.py complete --summary "x"'},
+    }]}}
+
+
+class DeliberationTests(unittest.TestCase):
+    """Reading context was always a hook; writing it was only a request. These cover the gate."""
+
+    def install(self, target: Path) -> Path:
+        self.assertEqual(run_python(BOOTSTRAP, "prepare", "--target", target).returncode, 0)
+        installed = run_python(BOOTSTRAP, "install", "--target", target)
+        self.assertEqual(installed.returncode, 0, installed.stderr + installed.stdout)
+        return target / ".claude" / "scripts" / "context_tool.py"
+
+    def gate(self, target: Path, entries: list[dict[str, object]], **overrides: object) -> dict:
+        transcript = target / "transcript.jsonl"
+        transcript.write_text("\n".join(json.dumps(entry) for entry in entries), encoding="utf-8")
+        event: dict[str, object] = {
+            "hook_event_name": "Stop",
+            "cwd": str(target),
+            "stop_hook_active": False,
+            "transcript_path": str(transcript),
+        }
+        event.update(overrides)
+        result = subprocess.run(
+            [sys.executable, str(target / ".claude" / "hooks" / "context_gate.py")],
+            input=json.dumps(event),
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return json.loads(result.stdout)
+
+    def test_install_wires_the_stop_hook(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory)
+            self.install(target)
+            settings = json.loads((target / ".claude/settings.json").read_text(encoding="utf-8"))
+            command = settings["hooks"]["Stop"][0]["hooks"][0]
+            self.assertIn("context_gate.py", command["args"][0])
+            self.assertTrue((target / ".claude/hooks/context_gate.py").is_file())
+
+    def test_gate_blocks_a_session_that_deliberated_without_recording(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory)
+            self.install(target)
+            verdict = self.gate(target, [said("a"), said("b"), said("c")])
+            self.assertEqual(verdict["decision"], "block")
+            self.assertIn("rejected", verdict["reason"])
+
+    def test_gate_leaves_a_short_session_alone(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory)
+            self.install(target)
+            self.assertEqual(self.gate(target, [said("a"), said("b")]), {})
+
+    def test_gate_never_blocks_the_same_stop_twice(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory)
+            self.install(target)
+            entries = [said("a"), said("b"), said("c")]
+            self.assertEqual(self.gate(target, entries, stop_hook_active=True), {})
+
+    def test_gate_clears_once_context_is_written(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory)
+            self.install(target)
+            entries = [said("a"), said("b"), said("c"), recorded()]
+            self.assertEqual(self.gate(target, entries), {})
+
+    def test_review_reads_back_a_rejected_option(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory)
+            helper = self.install(target)
+            body = (
+                "## Decided\nShip the smaller thing.\n\n"
+                "## Rejected\nA rewrite, because the deadline does not survive it.\n"
+            )
+            written = subprocess.run(
+                [sys.executable, str(helper), "topic-write", "--id", "scope",
+                 "--summary", "Scope decision", "--keyword", "scope", "--body-file", "-"],
+                cwd=target, input=body, text=True, capture_output=True, check=False,
+            )
+            self.assertEqual(written.returncode, 0, written.stderr + written.stdout)
+
+            found = run_python(helper, "review", "--section", "rejected", cwd=target)
+            self.assertEqual(found.returncode, 0, found.stderr + found.stdout)
+            payload = json.loads(found.stdout)
+            self.assertEqual(payload["count"], 1)
+            self.assertIn("deadline does not survive", payload["entries"][0]["text"])
+            self.assertEqual(payload["entries"][0]["topic"], "scope")
+
+            # A rejected option must not be reachable only by luck of wording.
+            queried = run_python(helper, "review", "--query", "rewrite", cwd=target)
+            self.assertEqual(json.loads(queried.stdout)["count"], 1)
+            missing = run_python(helper, "review", "--section", "revoked", cwd=target)
+            self.assertEqual(json.loads(missing.stdout)["count"], 0)
 
 
 class SkillInstallerTests(unittest.TestCase):

@@ -26,11 +26,11 @@ Claude Code auto memory is disabled for this project. `.claude/context/` is the 
 
 ## Maintain context after relevant work
 
-After a durable change, decision, completed step, new blocker, changed next step, or new reusable discovery, update context before considering the work finished.
+Deliberation is durable context: the repo shows state, never why. Record decisions, the options the user rejected and why, reversals, the structure discussed, constraints revealed, and any durable change, blocker, next step, or discovery. An unrecorded rejection returns next session as a fresh suggestion, never reconsidered on purpose.
 
-Read `.claude/rules/ctx404-context.md` for the exact procedure and the `complete` command. Do not improvise the command, hand-write timestamps, or edit `current.json` directly.
+Read `.claude/rules/ctx404-context.md` for the procedure. Do not improvise it, hand-write timestamps, or edit `current.json` directly.
 
-Do not update context for greetings, repeated information, or read-only questions that produce no durable discovery.
+Skip greetings, repetition, and lookups that revealed nothing. No file changed is not an exemption: would a future session ask this again? The `Stop` hook blocks a session that deliberated without recording.
 
 ## Route work by cost
 

@@ -392,6 +392,60 @@ def history(root: Path, limit: int, event_type: str | None) -> dict[str, Any]:
     return {"ok": True, "events": list(reversed(events))[:limit]}
 
 
+DELIBERATION_SECTIONS = ("decided", "rejected", "revoked", "constraints", "open")
+
+
+def split_sections(body: str) -> dict[str, str]:
+    sections: dict[str, str] = {}
+    heading: str | None = None
+    buffer: list[str] = []
+    for line in body.splitlines():
+        match = re.match(r"^#{2,3}\s+(.+?)\s*$", line)
+        if match:
+            if heading:
+                sections[heading] = "\n".join(buffer).strip()
+            heading = match.group(1).strip().casefold()
+            buffer = []
+        elif heading:
+            buffer.append(line)
+    if heading:
+        sections[heading] = "\n".join(buffer).strip()
+    return sections
+
+
+def review(root: Path, section: str, query: str, topic_filter: str, limit: int) -> dict[str, Any]:
+    """Read back deliberation, so a rejected idea can be reconsidered on purpose.
+
+    Recording a rejection is only half of it. An idea buried in a topic body is not
+    retrievable by summary or keyword, so without this command the record exists and
+    stays unreachable, which is indistinguishable from never having written it.
+    """
+    wanted = DELIBERATION_SECTIONS if section == "all" else (section,)
+    terms = [term.casefold() for term in re.findall(r"[\w-]+", query)]
+    entries: list[dict[str, Any]] = []
+    for path in topic_files(root):
+        metadata, body = parse_topic(path)
+        topic_id = str(metadata.get("id") or path.stem)
+        if topic_filter and topic_filter != topic_id:
+            continue
+        sections = split_sections(body)
+        for name in wanted:
+            text = sections.get(name)
+            if not text:
+                continue
+            if terms and not all(term in text.casefold() for term in terms):
+                continue
+            entries.append({
+                "topic": topic_id,
+                "section": name,
+                "updatedAt": metadata.get("updated-at"),
+                "path": path.relative_to(root).as_posix(),
+                "text": text,
+            })
+    entries.sort(key=lambda item: (item["section"], item["topic"]))
+    return {"ok": True, "section": section, "count": len(entries), "entries": entries[:limit]}
+
+
 def topic_write(
     root: Path,
     topic_id: str,
@@ -534,6 +588,12 @@ def main() -> int:
     history_command.add_argument("--limit", type=int, default=10)
     history_command.add_argument("--type")
     history_command.add_argument("--root")
+    review_command = sub.add_parser("review")
+    review_command.add_argument("--section", default="all", choices=("all", *DELIBERATION_SECTIONS))
+    review_command.add_argument("--query", default="")
+    review_command.add_argument("--topic", default="")
+    review_command.add_argument("--limit", type=int, default=50)
+    review_command.add_argument("--root")
     topic_command = sub.add_parser("topic-write")
     topic_command.add_argument("--id", required=True)
     topic_command.add_argument("--summary", required=True)
@@ -562,6 +622,8 @@ def main() -> int:
             payload = status(root)
         elif args.command == "find":
             payload = find_topics(root, args.query, max(1, min(args.limit, 20)))
+        elif args.command == "review":
+            payload = review(root, args.section, args.query, args.topic, max(1, min(args.limit, 200)))
         elif args.command == "list-topics":
             payload = list_topics(root)
         elif args.command == "history":
