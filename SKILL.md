@@ -61,16 +61,15 @@ Detect whether the target is new or already contains a project. Bootstrap new re
    CTX404 Installed
    CTX404 now at <version>
    https://github.com/claudneysessa/ctx404
-   ------------------------------------
-   !! RESTART THIS SESSION NOW !!
-   This session is still running without
-   CTX404. Its instructions and hooks are
-   read only at session start, so nothing
-   decided here is recorded as context.
-   ====================================
+   ****************************************
+   RESTART THE SESSION TO ACTIVATE CTX404
+   Its instructions and hooks load only at
+   session start. Until you restart, nothing
+   in this session is recorded as context.
+   ****************************************
    ```
 
-   Replace `<version>` with the real one. Three lines may be added, above the `---` separator only, and only when they apply: the preserved authority paths in `index` mode; `Durable context starts after the restart` for `adopt`; `Accept the workspace trust dialog once`. Nothing is ever added below the separator, and nothing else is ever added anywhere — no file list, no table, no architecture, no narration of the commands you ran. The restart half of the block is never shortened, softened, moved, or dropped, and never translated.
+   Replace `<version>` with the real one. Three lines may be added, above the asterisk banner only, and only when they apply: the preserved authority paths in `index` mode; `Durable context starts after the restart` for `adopt`; `Accept the workspace trust dialog once`. Nothing is ever added inside the banner, and nothing else is ever added anywhere — no file list, no table, no architecture, no narration of the commands you ran. The banner is never shortened, softened, moved, or dropped, and never translated.
 
    If `alreadyInstalled` is true, replace the top half with the installed version, the skill version, and whether an upgrade exists, and keep the restart half only if this run actually changed the project. Never present a global skill update as a project upgrade, and never overlay project protocol files.
 
@@ -89,7 +88,7 @@ Detect whether the target is new or already contains a project. Bootstrap new re
 3. Ask **one question and nothing else**: whether to upgrade from the installed version to the target version. Two lines at most — the versions, then the question with its options spelled out as bracketed initials. Pick the wording from how the user has been writing: Portuguese gets `Aplicar? [S] Sim  [N] Não`, every other language gets `Apply? [Y] Yes  [N] No`.
 
    ```text
-   CTX404 0.4.0-beta.1 → 0.4.0-beta.2.
+   CTX404 0.4.0-beta.2 → 0.4.0-beta.3.
    Aplicar? [S] Sim  [N] Não
    ```
 
@@ -108,15 +107,15 @@ Detect whether the target is new or already contains a project. Bootstrap new re
    CTX404 Updated
    CTX404 now at <version>
    https://github.com/claudneysessa/ctx404
-   ------------------------------------
-   !! RESTART THIS SESSION NOW !!
-   This session is still running the old
-   protocol. Instructions and hooks are
-   read only at session start.
-   ====================================
+   ****************************************
+   RESTART THE SESSION TO ACTIVATE CTX404
+   This session still runs the old protocol.
+   Instructions and hooks load only at
+   session start.
+   ****************************************
    ```
 
-   Replace `<version>` with the real one. Add a line only when `warnings` is non-empty, one per warning, above the `---` separator; nothing else is ever added. The restart half is never shortened, softened, moved, or dropped. Never delete or retire an old governance system as part of upgrade.
+   Replace `<version>` with the real one. Add a line only when `warnings` is non-empty, one per warning, above the asterisk banner; nothing else is ever added. The banner is never shortened, softened, moved, or dropped. Never delete or retire an old governance system as part of upgrade.
 
 7. Upgrade the protocol and nothing else. If you notice project content the new version made inconsistent, state it in one line as a suggestion and stop; do not rewrite the user's files in the same turn unless asked.
 

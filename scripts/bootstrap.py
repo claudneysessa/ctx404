@@ -17,7 +17,7 @@ from pathlib import Path
 
 SKILL_ROOT = Path(__file__).resolve().parent.parent
 TEMPLATES_ROOT = SKILL_ROOT / "assets" / "templates"
-CTX404_VERSION = "0.4.0-beta.2"
+CTX404_VERSION = "0.4.0-beta.3"
 GOVERNANCE_START = "<!-- ctx404:governance:start"
 GOVERNANCE_END = "<!-- ctx404:governance:end -->"
 PENDING_STATE = "ctx404-pending.json"
@@ -26,8 +26,11 @@ RECEIPT_STATE = "ctx404-receipt.json"
 VERSION_020 = "0.2.0-beta.1"
 VERSION_030 = "0.3.0-beta.1"
 VERSION_040 = "0.4.0-beta.1"
-# Ordered reviewed migration path. Each hop is applied in sequence.
-MIGRATION_CHAIN = (VERSION_020, VERSION_030, VERSION_040, CTX404_VERSION)
+VERSION_042 = "0.4.0-beta.2"
+# Ordered reviewed migration path. Each hop is applied in sequence. A released version stays in
+# this tuple forever: pending_hops refuses any installed version that is not in it, so dropping
+# one strands every project still on it.
+MIGRATION_CHAIN = (VERSION_020, VERSION_030, VERSION_040, VERSION_042, CTX404_VERSION)
 LEGACY_AUTHORITY_TEXT = (
     "Claude Code auto memory is disabled for this project. `.claude/context/` is the portable, "
     "Git-versioned memory system and the only durable project-context authority."
@@ -921,13 +924,18 @@ def hop_changes(hops: list[tuple[str, str]]) -> list[str]:
                 f"{CONTEXT_RULE_FILE} created as a path-scoped rule",
                 ".claude/settings.json gains an allow rule for the CTX404 helper",
             ]
-        if (source, destination) == (VERSION_040, CTX404_VERSION):
+        if (source, destination) == (VERSION_040, VERSION_042):
             changes += [
                 ".claude/hooks/context_gate.py added: a Stop hook that blocks a session "
                 "which deliberated without recording",
                 ".claude/settings.json gains the Stop hook",
                 f"{INSTRUCTIONS_FILE} now counts deliberation, and rejected options, as durable context",
                 f"{CONTEXT_RULE_FILE} gains the deliberation record and the review command",
+            ]
+        if (source, destination) == (VERSION_042, CTX404_VERSION):
+            changes += [
+                "version marker in CLAUDE.md and the context index",
+                f"{INSTRUCTIONS_FILE} re-rendered from the current template",
             ]
     return changes + ["managed helper, hooks, agents and templates refreshed", "history checkpoint"]
 
@@ -1051,7 +1059,7 @@ def hop_030_to_040(target: Path, selected_mode: str, created: list[str], warning
     copy_template(CONTEXT_RULE_FILE, target, created)
 
     stub = (TEMPLATES_ROOT / "CLAUDE.governance.md").read_text(encoding="utf-8").strip()
-    stub = stub.replace("{{CTX404_VERSION}}", CTX404_VERSION)
+    stub = stub.replace("{{CTX404_VERSION}}", VERSION_040)
     claude_path.write_text(
         block_pattern.sub(lambda _: stub, claude, count=1), encoding="utf-8", newline="\n"
     )
@@ -1063,10 +1071,7 @@ def hop_030_to_040(target: Path, selected_mode: str, created: list[str], warning
             json.dumps(merged_settings(target), ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
         )
 
-    index_path = target / ".claude/context/index.json"
-    index = json.loads(index_path.read_text(encoding="utf-8"))
-    index["ctx404Version"] = CTX404_VERSION
-    index_path.write_text(json.dumps(index, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    stamp_version(target, VERSION_040)
 
 
 def hop_040_to_040_beta2(target: Path, selected_mode: str) -> None:
@@ -1081,14 +1086,27 @@ def hop_040_to_040_beta2(target: Path, selected_mode: str) -> None:
     instructions_path.parent.mkdir(parents=True, exist_ok=True)
     instructions_path.write_text(render_instructions(selected_mode), encoding="utf-8", newline="\n")
 
+    settings_path = target / ".claude" / "settings.json"
+    if settings_path.is_file():
+        settings_path.write_text(
+            json.dumps(merged_settings(target), ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
+
     # The rule and the hooks arrive through REFRESHABLE_FILES; only the version marker is manual.
+    # Each hop stamps its own destination, never CTX404_VERSION, so a project migrating across
+    # several hops is never briefly labelled with a version it has not reached yet.
+    stamp_version(target, VERSION_042)
+
+
+def stamp_version(target: Path, version: str) -> None:
+    """Record the reached protocol version in CLAUDE.md and the context index."""
     claude_path = target / "CLAUDE.md"
     if claude_path.is_file():
         content = claude_path.read_text(encoding="utf-8")
         claude_path.write_text(
             re.sub(
                 r'(<!-- ctx404:governance:start version=")[^"]+(")',
-                lambda match: match.group(1) + CTX404_VERSION + match.group(2),
+                lambda match: match.group(1) + version + match.group(2),
                 content,
                 count=1,
             ),
@@ -1096,16 +1114,25 @@ def hop_040_to_040_beta2(target: Path, selected_mode: str) -> None:
             newline="\n",
         )
 
-    settings_path = target / ".claude" / "settings.json"
-    if settings_path.is_file():
-        settings_path.write_text(
-            json.dumps(merged_settings(target), ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
-        )
-
     index_path = target / ".claude/context/index.json"
     index = json.loads(index_path.read_text(encoding="utf-8"))
-    index["ctx404Version"] = CTX404_VERSION
+    index["ctx404Version"] = version
     index_path.write_text(json.dumps(index, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def hop_042_to_043(target: Path, selected_mode: str) -> None:
+    """Carry the project to the version whose install and upgrade reports demand a restart.
+
+    A session reads CLAUDE.md, the protocol file and the hooks once, at startup, so the session
+    that installs or upgrades CTX404 keeps running without them and records nothing. That is a
+    report defect, not a protocol defect, so the project files are unchanged here: the hop
+    re-renders the protocol from the current template, refreshes the managed implementation and
+    moves the version marker. The user-visible change ships in the skill.
+    """
+    instructions_path = target / INSTRUCTIONS_FILE
+    instructions_path.parent.mkdir(parents=True, exist_ok=True)
+    instructions_path.write_text(render_instructions(selected_mode), encoding="utf-8", newline="\n")
+    stamp_version(target, CTX404_VERSION)
 
 
 def normalized(data: bytes) -> bytes:
@@ -1169,8 +1196,10 @@ def upgrade_apply(target: Path, authority_mode: str | None) -> dict[str, object]
                 hop_020_to_030(target, selected_mode, authorities)
             elif (source, destination) == (VERSION_030, VERSION_040):
                 hop_030_to_040(target, selected_mode, created, warnings)
-            elif (source, destination) == (VERSION_040, CTX404_VERSION):
+            elif (source, destination) == (VERSION_040, VERSION_042):
                 hop_040_to_040_beta2(target, selected_mode)
+            elif (source, destination) == (VERSION_042, CTX404_VERSION):
+                hop_042_to_043(target, selected_mode)
             else:
                 raise BootstrapError(f"No reviewed migration step from {source} to {destination}")
 

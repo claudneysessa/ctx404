@@ -20,8 +20,9 @@ CONTEXT_RULE = ".claude/rules/ctx404-context.md"
 # Always-loaded footprint budget. The split exists to keep this small; guard it against regression.
 CORE_BUDGET_CHARS = 4200
 # Kept in step with bootstrap.CTX404_VERSION; the migration chain asserts on it below.
-CURRENT_VERSION = "0.4.0-beta.2"
+CURRENT_VERSION = "0.4.0-beta.3"
 PREVIOUS_VERSION = "0.4.0-beta.1"
+BETA2_VERSION = "0.4.0-beta.2"
 
 LEGACY_AUTHORITY_TEXT = (
     "Claude Code auto memory is disabled for this project. `.claude/context/` is the portable, "
@@ -561,7 +562,8 @@ class BootstrapTests(unittest.TestCase):
                 [
                     "0.2.0-beta.1 -> 0.3.0-beta.1",
                     f"0.3.0-beta.1 -> {PREVIOUS_VERSION}",
-                    f"{PREVIOUS_VERSION} -> {CURRENT_VERSION}",
+                    f"{PREVIOUS_VERSION} -> {BETA2_VERSION}",
+                    f"{BETA2_VERSION} -> {CURRENT_VERSION}",
                 ],
             )
 
@@ -614,7 +616,11 @@ class BootstrapTests(unittest.TestCase):
             self.assertEqual(plan.returncode, 0, plan.stderr + plan.stdout)
             self.assertEqual(
                 json.loads(plan.stdout)["hops"],
-                [f"0.3.0-beta.1 -> {PREVIOUS_VERSION}", f"{PREVIOUS_VERSION} -> {CURRENT_VERSION}"],
+                [
+                    f"0.3.0-beta.1 -> {PREVIOUS_VERSION}",
+                    f"{PREVIOUS_VERSION} -> {BETA2_VERSION}",
+                    f"{BETA2_VERSION} -> {CURRENT_VERSION}",
+                ],
             )
 
             applied = run_python(BOOTSTRAP, "upgrade-apply", "--target", target)
@@ -927,12 +933,17 @@ class SkillMetadataTests(unittest.TestCase):
         # CTX404 is not governed by it. Users cannot diagnose that: they see an empty context the
         # next day and conclude the tool does not work. The warning is the whole mitigation.
         text = (ROOT / "SKILL.md").read_text(encoding="utf-8")
-        self.assertEqual(text.count("!! RESTART THIS SESSION NOW !!"), 2)
+        banner = "*" * 40
+        self.assertEqual(text.count("RESTART THE SESSION TO ACTIVATE CTX404"), 2)
         self.assertNotIn("Restart session to apply updates", text)
         for header in ("CTX404 Installed", "CTX404 Updated"):
-            block = text.split(header, 1)[1].split("====================================", 1)[0]
-            warning = block.index("!! RESTART THIS SESSION NOW !!")
+            block = text.split(header, 1)[1].split("```", 1)[0]
+            # Opened and closed by asterisks, with the message between them, and nothing after.
+            self.assertEqual(block.count(banner), 2, header)
+            warning = block.index("RESTART THE SESSION TO ACTIVATE CTX404")
             self.assertLess(block.index("https://github.com"), warning, header)
+            self.assertLess(block.index(banner), warning, header)
+            self.assertGreater(block.rindex(banner), warning, header)
 
 
 if __name__ == "__main__":
