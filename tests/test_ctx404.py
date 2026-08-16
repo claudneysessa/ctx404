@@ -451,6 +451,7 @@ class BootstrapTests(unittest.TestCase):
             payload = json.loads(installed.stdout)
             self.assertEqual(payload["mode"], "adopt")
             self.assertTrue(payload["validation"]["ok"])
+            self.assertTrue(payload["restartRequired"])
 
             self.assertEqual((target / "README.md").read_text(encoding="utf-8"), readme)
             self.assertEqual((target / "app.py").read_text(encoding="utf-8"), app)
@@ -505,7 +506,10 @@ class BootstrapTests(unittest.TestCase):
             self.assertEqual(second_prepare.returncode, 0, second_prepare.stderr + second_prepare.stdout)
             second_install = run_python(BOOTSTRAP, "install", "--target", target)
             self.assertEqual(second_install.returncode, 0, second_install.stderr + second_install.stdout)
-            self.assertTrue(json.loads(second_install.stdout)["alreadyInstalled"])
+            second_payload = json.loads(second_install.stdout)
+            self.assertTrue(second_payload["alreadyInstalled"])
+            # Nothing changed, so there is nothing to restart for; the warning must not cry wolf.
+            self.assertFalse(second_payload["restartRequired"])
             self.assertEqual((target / "CLAUDE.md").read_text(encoding="utf-8"), first_claude)
 
     def test_reinstall_reports_version_drift_without_overlay(self) -> None:
@@ -917,6 +921,18 @@ class SkillMetadataTests(unittest.TestCase):
         frontmatter = text.split("---", 2)[1]
         self.assertIn("name: ctx404", frontmatter)
         self.assertIn("description:", frontmatter)
+
+    def test_both_reports_end_with_the_restart_warning(self) -> None:
+        # A session reads CLAUDE.md and the hooks once, at startup, so the session that installs
+        # CTX404 is not governed by it. Users cannot diagnose that: they see an empty context the
+        # next day and conclude the tool does not work. The warning is the whole mitigation.
+        text = (ROOT / "SKILL.md").read_text(encoding="utf-8")
+        self.assertEqual(text.count("!! RESTART THIS SESSION NOW !!"), 2)
+        self.assertNotIn("Restart session to apply updates", text)
+        for header in ("CTX404 Installed", "CTX404 Updated"):
+            block = text.split(header, 1)[1].split("====================================", 1)[0]
+            warning = block.index("!! RESTART THIS SESSION NOW !!")
+            self.assertLess(block.index("https://github.com"), warning, header)
 
 
 if __name__ == "__main__":

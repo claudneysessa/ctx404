@@ -770,6 +770,7 @@ def install(target: Path) -> dict[str, object]:
             "created": [],
             "updated": [],
             "validation": json.loads(result.stdout),
+            "restartRequired": False,
             "next": (
                 "CTX404 is already installed and valid. Continue working normally."
                 if not upgrade_available
@@ -861,14 +862,22 @@ def install(target: Path) -> dict[str, object]:
         "created": created,
         "updated": updated,
         "validation": json.loads(result.stdout),
+        "restartRequired": True,
+        "restartReason": (
+            "The protocol file and the SessionStart and PreToolUse hooks are read only when a session "
+            "starts. This session is still running without them: no status injection, no context gate, "
+            "nothing recorded. Tell the user to restart the session, last and unmissably."
+        ),
         "next": (
             "CTX404 is installed in a new repository. Refine the Project definition workspace from "
             "explicit user intent and verified evidence, then synchronize README.md and the context index. "
-            "Native /init or a concise recap may be requested manually and reviewed first."
+            "Native /init or a concise recap may be requested manually and reviewed first. "
+            "Then report, ending with the restart warning."
             if mode == "new"
             else "CTX404 adopted this existing repository without retrospective analysis. Durable context "
-            "starts now. Continue working normally. Optionally ask Claude for a concise, evidence-based "
-            "project recap or run native /init manually, then review it before saving it as context."
+            "starts after the session restart, not before. Optionally ask Claude for a concise, "
+            "evidence-based project recap or run native /init manually, then review it before saving it "
+            "as context."
         ),
     }
 
@@ -1204,6 +1213,12 @@ def upgrade_apply(target: Path, authority_mode: str | None) -> dict[str, object]
         "warnings": warnings,
         "validation": validation,
         "preserved": plan["preserved"],
+        "restartRequired": True,
+        "restartReason": (
+            "The refreshed protocol file and hooks are read only when a session starts. This session is "
+            "still running the previous version. Tell the user to restart the session, last and "
+            "unmissably."
+        ),
     }
 
 

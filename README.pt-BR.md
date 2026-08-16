@@ -89,6 +89,9 @@ Depois:
 2. Abra o Claude Code na pasta do projeto desejado.
 3. Execute `/ctx404`.
 4. Descreva o que o projeto deve se tornar.
+5. **Reinicie a sessão quando o `/ctx404` terminar.** Nada é registrado antes disso.
+
+> ⚠️ **A sessão que instala o CTX404 não é governada por ele.** O `CLAUDE.md`, o arquivo de protocolo e os hooks `SessionStart` e `PreToolUse` são lidos uma única vez, quando a sessão começa. A sessão que acabou de gravá-los continua rodando sem eles: sem resumo de status, sem gate de contexto, sem contexto durável. Continuar trabalhando ali significa horas de decisões sem nenhum registro em disco. O mesmo vale depois de `/ctx404 upgrade`.
 
 O CTX404 detecta o repositório automaticamente. Projetos vazios usam o bootstrap original. Projetos existentes usam adoção não destrutiva: arquivos e README permanecem intactos, as orientações existentes do Claude são preservadas, as configurações são mescladas e nenhuma análise retrospectiva do repositório acontece durante a instalação.
 

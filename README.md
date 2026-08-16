@@ -89,6 +89,9 @@ Then:
 2. Open Claude Code in the target project directory.
 3. Run `/ctx404`.
 4. Describe what the project should become.
+5. **Restart the session when `/ctx404` finishes.** Nothing is recorded until you do.
+
+> ⚠️ **The session that installs CTX404 is not governed by it.** `CLAUDE.md`, the protocol file and the `SessionStart` and `PreToolUse` hooks are read once, when a session starts. The session that just wrote them keeps running without them: no status summary, no context gate, no durable context. Keep working there and hours of decisions leave no trace on disk. The same applies after `/ctx404 upgrade`.
 
 CTX404 detects the repository automatically. Empty projects use the original bootstrap flow. Existing projects use non-destructive adoption: project files and README stay untouched, existing Claude guidance is preserved, settings are merged, and no retrospective repository analysis runs during installation.
 

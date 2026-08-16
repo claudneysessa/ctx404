@@ -53,23 +53,29 @@ Detect whether the target is new or already contains a project. Bootstrap new re
    python "<project-root>/.claude/scripts/context_tool.py" validate --root "<project-root>"
    ```
 
-11. Report with **this block, copied whole, and nothing around it**. No sentence before, none after. Always English, whatever language the user writes in:
+11. For `new` only, refine `.claude/context/project-definition.md` from explicit user intent and verified evidence. Define only personas that materially help the project, mark uncertain statements as assumptions, and never invent missing facts. Synchronize `README.md` and `.claude/context/index.json`. If the purpose is unavailable, ask one minimal question instead of inventing it. Do this **before** the report, so the restart warning is the last thing on screen.
+12. Report with **this block, copied whole, and nothing around it**. No sentence before, none after, and nothing else in the turn. Always English, whatever language the user writes in:
 
    ```text
    ====================================
    CTX404 Installed
-   Restart session to apply updates
    CTX404 now at <version>
    https://github.com/claudneysessa/ctx404
+   ------------------------------------
+   !! RESTART THIS SESSION NOW !!
+   This session is still running without
+   CTX404. Its instructions and hooks are
+   read only at session start, so nothing
+   decided here is recorded as context.
    ====================================
    ```
 
-   Replace `<version>` with the real one. Three lines may be added inside the block, and only when they apply: the preserved authority paths in `index` mode; `Durable context starts now` for `adopt`; `Accept the workspace trust dialog once`. Nothing else is ever added — no file list, no table, no architecture, no narration of the commands you ran.
+   Replace `<version>` with the real one. Three lines may be added, above the `---` separator only, and only when they apply: the preserved authority paths in `index` mode; `Durable context starts after the restart` for `adopt`; `Accept the workspace trust dialog once`. Nothing is ever added below the separator, and nothing else is ever added anywhere — no file list, no table, no architecture, no narration of the commands you ran. The restart half of the block is never shortened, softened, moved, or dropped, and never translated.
 
-   If `alreadyInstalled` is true, replace the body with the installed version, the skill version, and whether an upgrade exists. Never present a global skill update as a project upgrade, and never overlay project protocol files.
+   If `alreadyInstalled` is true, replace the top half with the installed version, the skill version, and whether an upgrade exists, and keep the restart half only if this run actually changed the project. Never present a global skill update as a project upgrade, and never overlay project protocol files.
 
-12. For `new` only, after that paragraph, refine `.claude/context/project-definition.md` from explicit user intent and verified evidence. Define only personas that materially help the project, mark uncertain statements as assumptions, and never invent missing facts. Synchronize `README.md` and `.claude/context/index.json`. If the purpose is unavailable, ask one minimal question instead of inventing it.
 13. Stop using CTX404 after this handoff; subsequent maintenance belongs to the repository protocol.
+14. If the user keeps working in the same session instead of restarting, say once, in one line, that CTX404 is not loaded yet and nothing from this session will be recorded — then do what they asked. Repeat it once more only if durable work is being produced. This is the failure the block exists to prevent: the protocol looks installed, the session behaves as if it were not, and hours of work leave no trace.
 
 ## Reviewed upgrade
 
@@ -100,13 +106,17 @@ Detect whether the target is new or already contains a project. Bootstrap new re
    ```text
    ====================================
    CTX404 Updated
-   Restart session to apply updates
    CTX404 now at <version>
    https://github.com/claudneysessa/ctx404
+   ------------------------------------
+   !! RESTART THIS SESSION NOW !!
+   This session is still running the old
+   protocol. Instructions and hooks are
+   read only at session start.
    ====================================
    ```
 
-   Replace `<version>` with the real one. Add a line inside the block only when `warnings` is non-empty, one per warning; nothing else is ever added. Never delete or retire an old governance system as part of upgrade.
+   Replace `<version>` with the real one. Add a line only when `warnings` is non-empty, one per warning, above the `---` separator; nothing else is ever added. The restart half is never shortened, softened, moved, or dropped. Never delete or retire an old governance system as part of upgrade.
 
 7. Upgrade the protocol and nothing else. If you notice project content the new version made inconsistent, state it in one line as a suggestion and stop; do not rewrite the user's files in the same turn unless asked.
 
@@ -137,6 +147,7 @@ Detect whether the target is new or already contains a project. Bootstrap new re
 - Preserve any existing `CLAUDE.md`; install the import stub above it and leave everything else untouched.
 - On `upgrade-apply` from a pre-0.4.0 project, the inline governance block is removed from `CLAUDE.md` and replaced by the stub. Surface `warnings` if any are returned; the rest of the payload is for you, not for the user.
 - Installing and upgrading are chores. One short paragraph each, and a link for whoever wants the detail. A long report is a defect: it buries the two or three things the user must actually do, and it reads as a tool talking about itself.
+- A CTX404 installation does not take effect in the session that performed it. `CLAUDE.md`, `.claude/ctx404-instructions.md` and the `SessionStart` and `PreToolUse` hooks are read when a session starts, so the session that just installed them still has no status injection, no context gate and no protocol. Restarting is the one step the user cannot skip, so it is the last thing they read and the only thing in the report that is allowed to be loud.
 - Never invoke native `/init` or generate a recap during CTX404 installation. Both are optional and user-controlled after the deterministic installation is complete.
 - Never treat optional `/init` or recap output as project evidence until the user reviews it; refine project context from explicit intent and verified files.
 - Do not enumerate or read the installed CTX404 directory. The workflow paths are defined here; invoke the bundled scripts directly.

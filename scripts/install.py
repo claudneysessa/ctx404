@@ -82,7 +82,12 @@ def main() -> int:
             "installedAt": str(destination),
             "replacedExisting": replaced,
             "command": "/ctx404",
-            "restartHint": "Restart Claude Code if the skill is not immediately discovered.",
+            "restartHint": (
+                "Restart Claude Code if the skill is not immediately discovered. "
+                "Restart again after /ctx404 finishes in a project: the installed protocol and hooks "
+                "are read only when a session starts, so the session that installed them is not "
+                "governed by them and records nothing."
+            ),
         }
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0
