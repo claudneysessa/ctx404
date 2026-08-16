@@ -117,7 +117,9 @@ In index mode, `.claude/context/index.json` records the detected paths under `go
 
 Updating the global skill does **not** update repositories that already contain CTX404. The planted protocol is intentionally self-contained. Rerunning `/ctx404` validates the installed project version and reports whether a newer skill exists, but never overlays project files.
 
-Use `/ctx404 upgrade` explicitly to request a reviewed migration. CTX404 first shows the installed and target versions, exact changes, preserved state and any authority decision. Only after approval does it create a local backup, apply a known version-to-version migration, run the context doctor and restore the backup automatically on failure. Migrations chain, so a project on the oldest beta reaches the current version in one reviewed run: `v0.2.0-beta.1 → v0.3.0-beta.1 → v0.4.0-beta.1`. The plan reports each hop, the files it creates, and the managed files it refreshes.
+Use `/ctx404 upgrade` explicitly to request a reviewed migration. CTX404 first shows the installed and target versions, exact changes, preserved state and any authority decision. Only after approval does it create a local backup, apply a known version-to-version migration, run the context doctor and restore the backup automatically on failure. Migrations chain, so a project on the oldest beta reaches the current version in one reviewed run: `v0.2.0-beta.1 → v0.3.0-beta.1 → v0.4.0-beta.1 → v0.4.0-beta.2 → v0.4.0-beta.3`. The plan reports each hop, the files it creates, and the managed files it refreshes. A released version is never removed from that chain: the upgrade refuses any installed version it does not recognize, so dropping one would strand every project still on it.
+
+An upgrade takes effect only in the next session, exactly like an install. Restart when it finishes.
 
 ## What it creates
 
@@ -126,7 +128,7 @@ Use `/ctx404 upgrade` explicitly to request a reviewed migration. CTX404 first s
 CTX404 does not write its protocol into `CLAUDE.md`. It adds a marked stub of two imports at the top and leaves the rest of the file untouched:
 
 ```text
-<!-- ctx404:governance:start version="0.4.0-beta.1" schema="2" -->
+<!-- ctx404:governance:start version="0.4.0-beta.3" schema="2" -->
 @.claude/ctx404-instructions.md
 @.claude/context/project-definition.md
 <!-- ctx404:governance:end -->
@@ -147,7 +149,8 @@ new-project/
 │   │   └── context-curator.md
 │   ├── hooks/
 │   │   ├── session_context.py
-│   │   └── guard_agent_bash.py
+│   │   ├── guard_agent_bash.py
+│   │   └── context_gate.py
 │   ├── scripts/context_tool.py
 │   ├── settings.json
 │   ├── ctx404-instructions.md
@@ -165,6 +168,16 @@ new-project/
 ```
 
 New sessions receive a compact status summary. They can query the index and load only the topic needed for the current task instead of treating the entire repository as startup context.
+
+### Writing context is enforced, not requested
+
+Reading context was always a hook, and therefore certain. Writing it was a paragraph of prose asking the model to remember, and a request loses to whatever else holds the turn. The asymmetry had a predictable shape: sessions that produced files got recorded, and sessions that produced only decisions — the ones whose reasoning exists nowhere else — did not.
+
+`.claude/hooks/context_gate.py` is a `Stop` hook that closes that gap. It reads the transcript, counts the exchanges since the last `complete`, and blocks the end of a session that deliberated without recording anything. It blocks once and never twice: Claude Code sets `stop_hook_active` on the retry and the hook stands down, so a false positive costs one turn. It fails open on an unreadable transcript, a missing context directory, or an auxiliary agent.
+
+Durable context is not defined by files changed. The test is whether a future session would have to ask again — so a decision, an option you rejected and why, a reversal, a structure discussed but never implemented, and a constraint you revealed are each recordable on their own.
+
+Recording is only half of it. `find` searches summaries and keywords, never topic bodies, so a rejected option written into a topic was stored and unreachable — which, from where you sit, is the same as never written. `context_tool.py review --section rejected`, `--query` and `--topic` read deliberation back out, so an option turned down in June can be reconsidered on purpose in August instead of being re-proposed as if it were new.
 
 ## Delegation is guidance, not magic
 

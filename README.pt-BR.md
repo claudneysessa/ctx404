@@ -117,7 +117,9 @@ No modo índice, `.claude/context/index.json` registra os caminhos detectados em
 
 Atualizar a skill global **não** atualiza repositórios que já contêm o CTX404. O protocolo plantado é intencionalmente autônomo. Executar `/ctx404` novamente valida a versão instalada no projeto e informa se existe uma skill mais nova, mas nunca sobrepõe os arquivos.
 
-Use `/ctx404 upgrade` explicitamente para solicitar uma migração revisada. Primeiro o CTX404 mostra as versões instalada e alvo, as mudanças exatas, o estado preservado e qualquer decisão de autoridade. Somente após aprovação ele cria um backup local, aplica uma migração conhecida entre versões, executa o doctor de contexto e restaura o backup automaticamente se houver falha. As migrações são encadeadas, então um projeto na beta mais antiga chega à versão atual numa única execução revisada: `v0.2.0-beta.1 → v0.3.0-beta.1 → v0.4.0-beta.1`. O plano informa cada salto, os arquivos criados e os arquivos gerenciados que são atualizados.
+Use `/ctx404 upgrade` explicitamente para solicitar uma migração revisada. Primeiro o CTX404 mostra as versões instalada e alvo, as mudanças exatas, o estado preservado e qualquer decisão de autoridade. Somente após aprovação ele cria um backup local, aplica uma migração conhecida entre versões, executa o doctor de contexto e restaura o backup automaticamente se houver falha. As migrações são encadeadas, então um projeto na beta mais antiga chega à versão atual numa única execução revisada: `v0.2.0-beta.1 → v0.3.0-beta.1 → v0.4.0-beta.1 → v0.4.0-beta.2 → v0.4.0-beta.3`. O plano informa cada salto, os arquivos criados e os arquivos gerenciados que são atualizados. Uma versão publicada nunca sai dessa cadeia: o upgrade recusa qualquer versão instalada que ele não reconheça, então remover uma deixaria sem saída todo projeto que ainda estivesse nela.
+
+Um upgrade só passa a valer na sessão seguinte, exatamente como uma instalação. Reinicie quando ele terminar.
 
 ## Estrutura criada
 
@@ -126,7 +128,7 @@ Use `/ctx404 upgrade` explicitamente para solicitar uma migração revisada. Pri
 O CTX404 não escreve o protocolo dentro do `CLAUDE.md`. Ele acrescenta um stub marcado de dois imports no topo e não toca no resto do arquivo:
 
 ```text
-<!-- ctx404:governance:start version="0.4.0-beta.1" schema="2" -->
+<!-- ctx404:governance:start version="0.4.0-beta.3" schema="2" -->
 @.claude/ctx404-instructions.md
 @.claude/context/project-definition.md
 <!-- ctx404:governance:end -->
@@ -147,7 +149,8 @@ novo-projeto/
 │   │   └── context-curator.md
 │   ├── hooks/
 │   │   ├── session_context.py
-│   │   └── guard_agent_bash.py
+│   │   ├── guard_agent_bash.py
+│   │   └── context_gate.py
 │   ├── scripts/context_tool.py
 │   ├── settings.json
 │   ├── ctx404-instructions.md
@@ -165,6 +168,16 @@ novo-projeto/
 ```
 
 Novas sessões recebem um resumo compacto. Elas consultam o índice e carregam somente o tópico necessário para a tarefa atual, em vez de transformar todo o repositório em contexto inicial.
+
+### Escrever contexto é imposto, não pedido
+
+Ler contexto sempre foi hook, e portanto certo. Escrever era um parágrafo em prosa pedindo que o modelo registrasse — e um pedido perde para qualquer outra coisa que ocupe o turno. A assimetria tinha forma previsível: sessões que produziam arquivos eram registradas, e sessões que produziam apenas decisões, justamente aquelas cujo raciocínio não existe em nenhum outro lugar, não eram.
+
+O `.claude/hooks/context_gate.py` é um hook `Stop` que fecha essa brecha. Ele lê o transcript, conta as trocas desde o último `complete` e bloqueia o fim de uma sessão que deliberou sem registrar nada. Bloqueia uma vez e nunca duas: na repetição o Claude Code manda `stop_hook_active` e o hook se cala, então um falso positivo custa um turno. Falha aberto se o transcript não abre, se não há diretório de contexto ou se é agente auxiliar.
+
+Contexto durável não se define por arquivo alterado. O teste é se uma sessão futura teria de perguntar de novo — então uma decisão, uma opção que você recusou e por quê, uma reversão, uma estrutura discutida e não implementada e uma restrição que você revelou são registráveis sozinhas.
+
+Registrar é só metade. O `find` busca resumos e keywords, nunca o corpo do tópico, então uma opção recusada escrita no corpo ficava guardada e inalcançável — o que, do seu lugar, é o mesmo que nunca ter sido escrita. O `context_tool.py review --section rejected`, `--query` e `--topic` lê a deliberação de volta, para que uma opção recusada em junho seja reconsiderada de propósito em agosto, em vez de ser reproposta como se fosse nova.
 
 ## Delegação ajuda; não faz mágica
 
